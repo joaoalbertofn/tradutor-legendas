@@ -135,4 +135,32 @@ describe("credits business rules & lazy resets", () => {
     expect(refunded.freeUsedToday).toBe(0);
     expect(refunded.freeRemaining).toBe(3);
   });
+
+  it("honors anonymous IP free usage when user logs in after exhausting 3 free translations", async () => {
+    const userId = "user_clerk_after_anon";
+    const t0 = new Date("2026-11-21T12:00:00.000Z");
+
+    // User already used 3 free translations anonymously on this IP -> 0 paid credits => 402
+    const blocked = await checkAndConsumeCredit(userId, t0, { ipFreeUsed: 3 });
+    expect(blocked.allowed).toBe(false);
+    if (blocked.allowed) return;
+    expect(blocked.status).toBe(402);
+    expect(blocked.credits.freeRemaining).toBe(0);
+
+    // Once user buys paid credits, they can translate immediately using paid credits
+    await grantPaidCreditsFromPayment({
+      externalPaymentId: "bill_after_anon",
+      userId,
+      creditsToAdd: 5,
+      amountCents: 300,
+      status: "PAID",
+      now: t0,
+    });
+
+    const paidUse = await checkAndConsumeCredit(userId, t0, { ipFreeUsed: 3 });
+    expect(paidUse.allowed).toBe(true);
+    if (!paidUse.allowed) return;
+    expect(paidUse.consumedFrom).toBe("paid");
+    expect(paidUse.credits.paidCredits).toBe(4);
+  });
 });

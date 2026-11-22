@@ -143,9 +143,14 @@ export function applyLazyResets(
 
 function toUserCreditsInfo(
   row: UserCreditsRow,
-  source: "supabase" | "memory"
+  source: "supabase" | "memory",
+  ipFreeUsed = 0
 ): UserCreditsInfo {
-  const freeUsedToday = Math.max(0, Number(row.free_used_today) || 0);
+  const freeUsedToday = Math.max(
+    0,
+    Number(row.free_used_today) || 0,
+    Number(ipFreeUsed) || 0
+  );
   const freeRemaining = Math.max(0, FREE_DAILY_LIMIT - freeUsedToday);
   const paidCredits = Math.max(0, Number(row.paid_credits) || 0);
 
@@ -254,17 +259,19 @@ async function saveRow(
  */
 export async function getUserCredits(
   userId: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  options?: { ipFreeUsed?: number }
 ): Promise<UserCreditsInfo> {
   const { row, source } = await getOrCreateRow(userId, now);
   const { row: normalized, changed } = applyLazyResets(row, now);
+  const ipFreeUsed = options?.ipFreeUsed ?? 0;
 
   if (changed) {
     const saved = await saveRow(normalized, source);
-    return toUserCreditsInfo(saved, source);
+    return toUserCreditsInfo(saved, source, ipFreeUsed);
   }
 
-  return toUserCreditsInfo(normalized, source);
+  return toUserCreditsInfo(normalized, source, ipFreeUsed);
 }
 
 export type ConsumeCreditResult =
@@ -289,15 +296,18 @@ export type ConsumeCreditResult =
  */
 export async function checkAndConsumeCredit(
   userId: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  options?: { ipFreeUsed?: number }
 ): Promise<ConsumeCreditResult> {
   const { row, source } = await getOrCreateRow(userId, now);
   const { row: normalized, changed } = applyLazyResets(row, now);
+  const ipFreeUsed = Math.max(0, Number(options?.ipFreeUsed) || 0);
+  const effectiveFreeUsed = Math.max(normalized.free_used_today, ipFreeUsed);
 
-  if (normalized.free_used_today < FREE_DAILY_LIMIT) {
+  if (effectiveFreeUsed < FREE_DAILY_LIMIT) {
     const updated: UserCreditsRow = {
       ...normalized,
-      free_used_today: normalized.free_used_today + 1,
+      free_used_today: effectiveFreeUsed + 1,
       updated_at: now.toISOString(),
     };
     const saved = await saveRow(updated, source);
@@ -318,7 +328,7 @@ export async function checkAndConsumeCredit(
     return {
       allowed: true,
       consumedFrom: "paid",
-      credits: toUserCreditsInfo(saved, source),
+      credits: toUserCreditsInfo(saved, source, ipFreeUsed),
     };
   }
 
@@ -329,7 +339,7 @@ export async function checkAndConsumeCredit(
   return {
     allowed: false,
     status: 402,
-    credits: toUserCreditsInfo(normalized, source),
+    credits: toUserCreditsInfo(normalized, source, ipFreeUsed),
     error:
       "Você atingiu o limite de 3 traduções grátis hoje e não possui créditos avulsos disponíveis. Adquira um pacote para continuar traduzindo.",
   };

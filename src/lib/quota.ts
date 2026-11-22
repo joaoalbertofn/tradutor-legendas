@@ -48,7 +48,7 @@ function getSecondsUntilEndOfUtcDay(): number {
   return Math.max(60, Math.ceil((tomorrow - now.getTime()) / 1000));
 }
 
-function isUnlimitedLocalDev(): boolean {
+export function isUnlimitedLocalDev(): boolean {
   return (
     process.env.NODE_ENV === "development" &&
     process.env.ENFORCE_QUOTA_IN_DEV !== "true"
@@ -234,6 +234,58 @@ export async function getQuotaForIp(ip: string): Promise<QuotaInfo> {
   };
 }
 
+export async function incrementIpFreeUsage(ip: string): Promise<void> {
+  if (isUnlimitedLocalDev()) return;
+
+  const redis = getRedis();
+  const today = getTodayKey();
+  const dayKey = `quota:subtitles:${today}:${hashIp(ip)}`;
+  const globalDayKey = `quota:global:${today}`;
+
+  if (redis) {
+    const ttl = getSecondsUntilEndOfUtcDay();
+    const newCount = await redis.incr(dayKey);
+    if (newCount === 1) {
+      await redis.expire(dayKey, ttl);
+    }
+    const newGlobal = await redis.incr(globalDayKey);
+    if (newGlobal === 1) {
+      await redis.expire(globalDayKey, ttl);
+    }
+    return;
+  }
+
+  sweepMemoryMaps();
+  const current = dailyQuotaMap.get(dayKey) ?? 0;
+  dailyQuotaMap.set(dayKey, current + 1);
+}
+
+export async function decrementIpFreeUsage(ip: string): Promise<void> {
+  if (isUnlimitedLocalDev()) return;
+
+  const redis = getRedis();
+  const today = getTodayKey();
+  const dayKey = `quota:subtitles:${today}:${hashIp(ip)}`;
+  const globalDayKey = `quota:global:${today}`;
+
+  if (redis) {
+    const current = Number((await redis.get<number>(dayKey)) ?? 0);
+    if (current > 0) {
+      await redis.decr(dayKey);
+    }
+    const globalCurrent = Number((await redis.get<number>(globalDayKey)) ?? 0);
+    if (globalCurrent > 0) {
+      await redis.decr(globalDayKey);
+    }
+    return;
+  }
+
+  const current = dailyQuotaMap.get(dayKey) ?? 0;
+  if (current > 0) {
+    dailyQuotaMap.set(dayKey, current - 1);
+  }
+}
+
 export async function startTranslationSession(
   ip: string
 ): Promise<
@@ -398,7 +450,7 @@ export async function startTranslationSession(
 export async function validateTranslationSession(
   sessionId: string,
   ip: string
-): Promise<{ valid: boolean; reason?: string }> {
+): Promise<{ valid: boolean; reason?: string; hasSuccessfulChunk?: boolean }> {
   const ipHash = hashIp(ip);
   const tokenCheck = verifySessionToken(sessionId, ipHash);
 
@@ -424,7 +476,7 @@ export async function validateTranslationSession(
       return { valid: false, reason: "Sessão não pertence ao endereço de origem." };
     }
 
-    // Atomic increment prevents race conditions with 3 concurrent workers
+    // Atomic increment prevents race conditions with concurrent workers
     const updatedChunks = await redis.hincrby(sessionKey, "chunksUsed", 1);
     if (updatedChunks > MAX_CHUNKS_PER_SESSION) {
       return {
@@ -433,7 +485,10 @@ export async function validateTranslationSession(
       };
     }
 
-    return { valid: true };
+    return {
+      valid: true,
+      hasSuccessfulChunk: Number(session.successfulChunks ?? 0) > 0,
+    };
   }
 
   const session = sessionMap.get(uuid);
@@ -447,7 +502,7 @@ export async function validateTranslationSession(
       counted: false,
       expiresAt: Date.now() + SESSION_TTL_SECONDS * 1000,
     });
-    return { valid: true };
+    return { valid: true, hasSuccessfulChunk: false };
   }
 
   if (Date.now() > session.expiresAt) {
@@ -463,7 +518,7 @@ export async function validateTranslationSession(
   }
 
   session.chunksUsed += 1;
-  return { valid: true };
+  return { valid: true, hasSuccessfulChunk: session.successfulChunks > 0 };
 }
 
 export async function markSessionChunkSuccess(

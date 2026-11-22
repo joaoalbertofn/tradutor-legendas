@@ -39,6 +39,7 @@ import {
 import { calculateEstimatedCostUsd } from "@/lib/pricing";
 import type {
   ParsedSubtitle,
+  QuotaInfo,
   SessionResponse,
   StatsResponse,
   SubtitleBlock,
@@ -152,6 +153,7 @@ export default function HomePage() {
   const [totalTranslated, setTotalTranslated] = useState<number | null>(null);
   const [statsSource, setStatsSource] = useState<"redis" | "fallback">("fallback");
   const [credits, setCredits] = useState<UserCreditsInfo | null>(null);
+  const [anonymousQuota, setAnonymousQuota] = useState<QuotaInfo | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(false);
 
   const [isBuyCreditsOpen, setIsBuyCreditsOpen] = useState(false);
@@ -193,9 +195,18 @@ export default function HomePage() {
     try {
       const res = await fetch("/api/credits", { cache: "no-store" });
       if (!res.ok) return;
-      const data = (await res.json()) as { credits?: UserCreditsInfo };
-      if (data.credits) {
+      const data = (await res.json()) as {
+        signedIn?: boolean;
+        credits?: UserCreditsInfo | null;
+        quota?: QuotaInfo | null;
+      };
+      if (data.quota) {
+        setAnonymousQuota(data.quota);
+      }
+      if (data.signedIn && data.credits) {
         setCredits(data.credits);
+      } else {
+        setCredits(null);
       }
     } catch {
       // Ignore transient errors
@@ -235,13 +246,9 @@ export default function HomePage() {
     };
   }, []);
 
-  // Load authenticated user credits whenever Clerk session changes
+  // Load quota/credits on mount and whenever Clerk session changes
   useEffect(() => {
     if (!isAuthLoaded) return;
-    if (!isSignedIn || !userId) {
-      setCredits(null);
-      return;
-    }
     void fetchUserCredits();
   }, [isAuthLoaded, isSignedIn, userId, fetchUserCredits]);
 
@@ -512,15 +519,26 @@ export default function HomePage() {
   const handleStartTranslation = useCallback(async () => {
     if (!parsed || !file) return;
 
-    // Require Clerk authentication before starting translation
-    if (!isSignedIn) {
+    // Anonymous user: allow up to 3 free translations/day without login;
+    // only prompt Clerk sign-in once the free daily limit is exhausted (unless running unlimited locally).
+    if (
+      !isSignedIn &&
+      anonymousQuota !== null &&
+      !anonymousQuota.unlimited &&
+      anonymousQuota.remaining === 0
+    ) {
       pendingTranslateAfterSignInRef.current = true;
       openSignIn();
       return;
     }
 
-    // If we already know the user has 0 available credits, open purchase modal immediately
-    if (credits !== null && credits.totalAvailable === 0) {
+    // Signed-in user: if we already know they have 0 available credits (and not unlimited locally), open purchase modal
+    if (
+      isSignedIn &&
+      credits !== null &&
+      !credits.unlimited &&
+      credits.totalAvailable === 0
+    ) {
       setBuyCreditsReason("limit_reached");
       setIsBuyCreditsOpen(true);
       return;
@@ -579,7 +597,8 @@ export default function HomePage() {
 
       const estimatedCostUsd = calculateEstimatedCostUsd(
         telemetry.totalPromptTokens,
-        telemetry.totalOutputTokens
+        telemetry.totalOutputTokens,
+        telemetry.model ?? undefined
       );
 
       sendTranslationLogFireAndForget({
@@ -613,6 +632,9 @@ export default function HomePage() {
         if (sessionData.credits) {
           setCredits(sessionData.credits as UserCreditsInfo);
         }
+        if (sessionData.quota) {
+          setAnonymousQuota(sessionData.quota as QuotaInfo);
+        }
 
         if (sessionRes.status === 401) {
           setStatus("idle");
@@ -633,9 +655,18 @@ export default function HomePage() {
         );
       }
 
-      const { sessionId, credits: updatedCredits } = sessionData as SessionResponse;
+      const {
+        sessionId,
+        credits: updatedCredits,
+        quota: updatedQuota,
+      } = sessionData as SessionResponse;
       activeSessionId = sessionId;
-      setCredits(updatedCredits);
+      if (updatedCredits) {
+        setCredits(updatedCredits);
+      }
+      if (updatedQuota) {
+        setAnonymousQuota(updatedQuota);
+      }
 
       // 2. Adaptive concurrent queue (starts at 6 workers, backs off on 429)
       const startTime = Date.now();
@@ -758,6 +789,7 @@ export default function HomePage() {
           .then((r) => r.json())
           .then((d) => {
             if (d?.credits) setCredits(d.credits as UserCreditsInfo);
+            if (d?.quota) setAnonymousQuota(d.quota as QuotaInfo);
           })
           .catch(() => {});
       }
@@ -782,6 +814,7 @@ export default function HomePage() {
     isSignedIn,
     openSignIn,
     credits,
+    anonymousQuota,
     sourceType,
     extractionDurationMs,
     translateChunkWithRetry,
@@ -826,6 +859,7 @@ export default function HomePage() {
       <Header
         totalTranslated={totalTranslated}
         credits={credits}
+        quota={anonymousQuota}
         creditsLoading={creditsLoading}
         onOpenBuyCredits={() => {
           setBuyCreditsReason("manual");
@@ -890,25 +924,50 @@ export default function HomePage() {
         {/* Primary Action Button */}
         {parsed && status !== "translating" && (
           <div className="space-y-2.5">
-            {isSignedIn && credits !== null && credits.totalAvailable === 0 && (
-              <div className="flex flex-col items-start justify-between gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-xs text-amber-200 sm:flex-row sm:items-center">
-                <span>
-                  Você já usou suas {credits.freeLimit} traduções grátis de hoje.
-                  Compre um pacote avulso a partir de R$ 3,00 para continuar.
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBuyCreditsReason("limit_reached");
-                    setIsBuyCreditsOpen(true);
-                  }}
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-zinc-950 transition-colors hover:bg-emerald-400"
-                >
-                  <Zap className="h-3.5 w-3.5" />
-                  Comprar créditos
-                </button>
-              </div>
-            )}
+            {!isSignedIn &&
+              anonymousQuota !== null &&
+              !anonymousQuota.unlimited &&
+              anonymousQuota.remaining === 0 && (
+                <div className="flex flex-col items-start justify-between gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-xs text-amber-200 sm:flex-row sm:items-center">
+                  <span>
+                    Você já usou suas {anonymousQuota.limit} traduções grátis de
+                    hoje. Faça login para verificar seus créditos ou adquirir um
+                    pacote avulso.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      pendingTranslateAfterSignInRef.current = true;
+                      openSignIn();
+                    }}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-zinc-950 transition-colors hover:bg-emerald-400"
+                  >
+                    Entrar para continuar
+                  </button>
+                </div>
+              )}
+            {isSignedIn &&
+              credits !== null &&
+              !credits.unlimited &&
+              credits.totalAvailable === 0 && (
+                <div className="flex flex-col items-start justify-between gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-xs text-amber-200 sm:flex-row sm:items-center">
+                  <span>
+                    Você já usou suas {credits.freeLimit} traduções grátis de hoje.
+                    Compre um pacote avulso a partir de R$ 3,00 para continuar.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBuyCreditsReason("limit_reached");
+                      setIsBuyCreditsOpen(true);
+                    }}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-zinc-950 transition-colors hover:bg-emerald-400"
+                  >
+                    <Zap className="h-3.5 w-3.5" />
+                    Comprar créditos
+                  </button>
+                </div>
+              )}
             <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-end">
               {extractedOriginal && (
                 <button

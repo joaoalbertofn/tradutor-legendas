@@ -22,6 +22,16 @@ describe("pricing", () => {
     );
   });
 
+  it("uses Flash-Lite pricing ($0.10/1M input, $0.40/1M output) for flash-lite models", () => {
+    // 100k input ($0.01) + 50k output ($0.02) = $0.03
+    expect(
+      calculateEstimatedCostUsd(100_000, 50_000, "gemini-3.5-flash-lite")
+    ).toBe(0.03);
+    expect(
+      calculateEstimatedCostUsd(100_000, 50_000, "gemini-3.1-flash-lite")
+    ).toBe(0.03);
+  });
+
   it("handles zero or invalid token counts safely", () => {
     expect(calculateEstimatedCostUsd(0, 0)).toBe(0);
     expect(calculateEstimatedCostUsd(-500, Number.NaN)).toBe(0);

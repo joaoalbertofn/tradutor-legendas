@@ -52,6 +52,7 @@ export interface UserCreditsInfo {
   totalAvailable: number;
   updatedAt: string;
   source: "supabase" | "memory";
+  unlimited?: boolean;
 }
 
 export interface StatsResponse {
@@ -62,8 +63,10 @@ export interface StatsResponse {
 
 export interface SessionResponse {
   sessionId: string;
-  credits: UserCreditsInfo;
-  consumedFrom: "free" | "paid";
+  credits?: UserCreditsInfo;
+  quota?: QuotaInfo;
+  consumedFrom?: "free" | "paid";
+  unlimited?: boolean;
 }
 
 export type TranslationStatus =

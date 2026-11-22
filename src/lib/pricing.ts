@@ -14,16 +14,24 @@ export const GEMINI_2_5_FLASH_PRICING: ModelPricing = {
   outputUsdPer1M: 0.6,
 };
 
+export const GEMINI_FLASH_LITE_PRICING: ModelPricing = {
+  inputUsdPer1M: 0.1,
+  outputUsdPer1M: 0.4,
+};
+
 /**
  * Per-model pricing overrides (USD per 1M tokens).
- * Any model not listed here falls back to GEMINI_2_5_FLASH_PRICING.
+ * Any model not listed here falls back to flash-lite if its name includes "flash-lite",
+ * otherwise GEMINI_2_5_FLASH_PRICING.
  */
 export const MODEL_PRICING_MAP: Record<string, ModelPricing> = {
   "gemini-2.5-flash": GEMINI_2_5_FLASH_PRICING,
-  "gemini-2.5-flash-lite": {
-    inputUsdPer1M: 0.1,
-    outputUsdPer1M: 0.4,
-  },
+  "gemini-2.5-flash-lite": GEMINI_FLASH_LITE_PRICING,
+  "gemini-3.5-flash-lite": GEMINI_FLASH_LITE_PRICING,
+  "gemini-3.1-flash-lite": GEMINI_FLASH_LITE_PRICING,
+  "gemini-3.5-flash": GEMINI_2_5_FLASH_PRICING,
+  "gemini-3.6-flash": GEMINI_2_5_FLASH_PRICING,
+  "gemini-3.8-flash": GEMINI_2_5_FLASH_PRICING,
 };
 
 /** Default USD → BRL exchange rate used when no env override is configured */
@@ -42,6 +50,9 @@ export function getUsdToBrlRate(): number {
 export function getPricingForModel(model?: string): ModelPricing {
   if (model && model in MODEL_PRICING_MAP) {
     return MODEL_PRICING_MAP[model];
+  }
+  if (model && /flash-lite/i.test(model)) {
+    return GEMINI_FLASH_LITE_PRICING;
   }
   return GEMINI_2_5_FLASH_PRICING;
 }

@@ -4,11 +4,12 @@ import Link from "next/link";
 import { Show, SignInButton, UserButton } from "@clerk/nextjs";
 import { BookOpen, Plus } from "lucide-react";
 import { BrandMark, BrandWordmark } from "@/components/BrandLogo";
-import type { UserCreditsInfo } from "@/lib/types";
+import type { QuotaInfo, UserCreditsInfo } from "@/lib/types";
 
 interface HeaderProps {
   totalTranslated: number | null;
   credits: UserCreditsInfo | null;
+  quota?: QuotaInfo | null;
   creditsLoading?: boolean;
   onOpenBuyCredits: () => void;
 }
@@ -26,6 +27,7 @@ function formatExpiryShort(isoDate: string | null): string | null {
 export function Header({
   totalTranslated,
   credits,
+  quota = null,
   creditsLoading = false,
   onOpenBuyCredits,
 }: HeaderProps) {
@@ -44,6 +46,7 @@ export function Header({
 
   const badgeText = (() => {
     if (creditsLoading && !credits) return "Carregando saldo...";
+    if (credits?.unlimited) return "Ilimitado (local)";
     if (!credits) return "3/3 grátis hoje";
     if (credits.paidCredits > 0) {
       const unit = credits.paidCredits === 1 ? "crédito" : "créditos";
@@ -54,11 +57,23 @@ export function Header({
     return `${credits.freeRemaining}/${credits.freeLimit} grátis hoje`;
   })();
 
-  const badgeTitle = credits
+  const badgeTitle = credits?.unlimited
+    ? "Modo desenvolvimento local: traduções ilimitadas"
+    : credits
     ? `Grátis hoje: ${credits.freeRemaining}/${credits.freeLimit} • Créditos avulsos: ${credits.paidCredits}`
     : "Saldo de traduções";
 
-  const isExhausted = credits !== null && credits.totalAvailable === 0;
+  const isExhausted =
+    credits !== null && !credits.unlimited && credits.totalAvailable === 0;
+
+  const anonBadgeText = (() => {
+    if (quota?.unlimited) return "Ilimitado (local)";
+    if (quota) return `${quota.remaining}/${quota.limit} grátis hoje`;
+    return "3 traduções grátis/dia";
+  })();
+
+  const anonExhausted =
+    quota !== null && !quota.unlimited && quota.remaining === 0;
 
   return (
     <header className="sticky top-0 z-30 border-b border-zinc-800/80 bg-zinc-950/80 backdrop-blur-md">
@@ -101,8 +116,13 @@ export function Header({
 
           {/* Auth & Credits controls */}
           <Show when="signed-out">
-            <span className="hidden rounded-full border border-zinc-800/80 bg-zinc-900/60 px-2.5 py-1 text-[11px] font-medium text-zinc-400 lg:inline-flex">
-              3 traduções grátis/dia
+            <span className="hidden items-center gap-1.5 rounded-full border border-zinc-800/80 bg-zinc-900/60 px-2.5 py-1 text-[11px] font-medium text-zinc-400 lg:inline-flex">
+              <span
+                className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                  anonExhausted ? "bg-amber-400" : "bg-emerald-400"
+                }`}
+              />
+              {anonBadgeText}
             </span>
             <SignInButton mode="modal">
               <button
