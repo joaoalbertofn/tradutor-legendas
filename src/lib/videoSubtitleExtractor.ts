@@ -245,7 +245,7 @@ export function cleanAssSubtitleText(rawPayload: string): string {
 
   // Remove ASS vector drawing commands ({\p1}...{\p0})
   text = text.replace(
-    /\{\\[^}]*\\p[1-9][^}]*\}[\s\S]*?(?:\{\\[^}]*\\p0[^}]*\}|$)/g,
+    /\{[^}]*\\p[1-9][^}]*\}[\s\S]*?(?:\{[^}]*\\p0[^}]*\}|$)/g,
     ""
   );
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { UploadCloud, FileText, X, AlertCircle } from "lucide-react";
+import { UploadCloud, FileText, X, AlertCircle, Film } from "lucide-react";
 import { CHUNK_SIZE, decodeSubtitleBuffer } from "@/lib/subtitleParser";
 import type { ParsedSubtitle } from "@/lib/types";
 
@@ -9,8 +9,11 @@ interface SubtitleUploaderProps {
   file: File | null;
   parsed: ParsedSubtitle | null;
   disabled?: boolean;
+  extractedSourceLabel?: string | null;
   onFileSelected: (file: File, content: string) => void;
   onClear: () => void;
+  onOpenVideoExtractor?: () => void;
+  onVideoFileDropped?: (videoFile: File) => void;
 }
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -25,8 +28,11 @@ export function SubtitleUploader({
   file,
   parsed,
   disabled = false,
+  extractedSourceLabel = null,
   onFileSelected,
   onClear,
+  onOpenVideoExtractor,
+  onVideoFileDropped,
 }: SubtitleUploaderProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -37,6 +43,14 @@ export function SubtitleUploader({
     if (!candidate) return;
 
     const lower = candidate.name.toLowerCase();
+    if (
+      (lower.endsWith(".mkv") || lower.endsWith(".mp4") || lower.endsWith(".m4v")) &&
+      onVideoFileDropped
+    ) {
+      onVideoFileDropped(candidate);
+      return;
+    }
+
     if (!lower.endsWith(".srt") && !lower.endsWith(".vtt")) {
       setLocalError("Formato não suportado. Selecione um arquivo .srt ou .vtt.");
       return;
@@ -81,6 +95,12 @@ export function SubtitleUploader({
                 <span className="shrink-0 rounded-md border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase text-zinc-300">
                   {parsed.format}
                 </span>
+                {extractedSourceLabel && (
+                  <span className="hidden shrink-0 items-center gap-1 rounded-md border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300 sm:inline-flex">
+                    <Film className="h-2.5 w-2.5" />
+                    Extraída do vídeo
+                  </span>
+                )}
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400">
                 <span>{formatFileSize(file.size)}</span>
@@ -166,6 +186,25 @@ export function SubtitleUploader({
           idioma (até 5 MB)
         </p>
       </div>
+
+      {onOpenVideoExtractor && (
+        <div className="flex justify-center pt-1">
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={onOpenVideoExtractor}
+            className="group inline-flex items-center gap-2 rounded-xl border border-zinc-800/80 bg-zinc-900/40 px-4 py-2 text-xs text-zinc-400 transition-all hover:border-emerald-500/30 hover:bg-zinc-900 hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Film className="h-3.5 w-3.5 shrink-0 text-zinc-500 transition-colors group-hover:text-emerald-400" />
+            <span>
+              Seu filme não veio com arquivo de legenda?{" "}
+              <span className="font-medium text-emerald-400 underline-offset-4 group-hover:underline">
+                Clique aqui para extrair do vídeo (.mkv / .mp4)
+              </span>
+            </span>
+          </button>
+        </div>
+      )}
 
       {localError && (
         <div className="flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-3.5 py-2.5 text-xs text-red-300">

@@ -1,12 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Sparkles, RotateCcw } from "lucide-react";
+import dynamic from "next/dynamic";
+import { Sparkles, RotateCcw, Download } from "lucide-react";
 import { Header } from "@/components/Header";
 import { SubtitleUploader } from "@/components/SubtitleUploader";
 import { TranslationOptions } from "@/components/TranslationOptions";
 import { TranslationProgress } from "@/components/TranslationProgress";
 import { PreviewTable } from "@/components/PreviewTable";
+import type { ExtractedSubtitlePayload } from "@/components/VideoExtractorModal";
+
+const VideoExtractorModal = dynamic(
+  () =>
+    import("@/components/VideoExtractorModal").then(
+      (mod) => mod.VideoExtractorModal
+    ),
+  { ssr: false }
+);
 import {
   CHUNK_SIZE,
   FULL_CONTEXT_BLOCK_THRESHOLD,
@@ -105,6 +115,14 @@ export default function HomePage() {
   const [parsed, setParsed] = useState<ParsedSubtitle | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
 
+  const [isVideoExtractorOpen, setIsVideoExtractorOpen] = useState(false);
+  const [pendingVideoFile, setPendingVideoFile] = useState<File | null>(null);
+  const [extractedOriginal, setExtractedOriginal] = useState<{
+    fileName: string;
+    content: string;
+    trackLabel: string;
+  } | null>(null);
+
   const [style, setStyle] = useState<TranslationStyle>("natural");
   const [glossary, setGlossary] = useState("");
   const [includeBom, setIncludeBom] = useState(true);
@@ -165,6 +183,7 @@ export default function HomePage() {
     setCompletedChunks(0);
     setTotalChunks(0);
     setEtaSeconds(null);
+    setExtractedOriginal(null);
 
     const result = parseSubtitle(content, selectedFile.name);
     if (result.blocks.length === 0) {
@@ -183,11 +202,39 @@ export default function HomePage() {
     }
   }, []);
 
+  const handleVideoSubtitleExtracted = useCallback(
+    (payload: ExtractedSubtitlePayload) => {
+      handleFileSelected(payload.file, payload.content);
+      setExtractedOriginal({
+        fileName: payload.fileName,
+        content: payload.content,
+        trackLabel: payload.trackLabel,
+      });
+      setPendingVideoFile(null);
+    },
+    [handleFileSelected]
+  );
+
+  const handleDownloadOriginalExtracted = useCallback(() => {
+    if (!extractedOriginal) return;
+    const blob = createSubtitleBlob(extractedOriginal.content, "srt", includeBom);
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = extractedOriginal.fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, [extractedOriginal, includeBom]);
+
   const handleClear = useCallback(() => {
     abortControllerRef.current?.abort();
     setFile(null);
     setParsed(null);
     setParseError(null);
+    setExtractedOriginal(null);
     setStatus("idle");
     setTranslations({});
     translationsRef.current = {};
@@ -507,8 +554,17 @@ export default function HomePage() {
           file={file}
           parsed={parsed}
           disabled={isTranslating}
+          extractedSourceLabel={extractedOriginal?.trackLabel ?? null}
           onFileSelected={handleFileSelected}
           onClear={handleClear}
+          onOpenVideoExtractor={() => {
+            setPendingVideoFile(null);
+            setIsVideoExtractorOpen(true);
+          }}
+          onVideoFileDropped={(videoFile) => {
+            setPendingVideoFile(videoFile);
+            setIsVideoExtractorOpen(true);
+          }}
         />
 
         {parseError && (
@@ -538,6 +594,17 @@ export default function HomePage() {
               </div>
             )}
             <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-end">
+              {extractedOriginal && (
+                <button
+                  type="button"
+                  onClick={handleDownloadOriginalExtracted}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-zinc-100 sm:w-auto"
+                >
+                  <Download className="h-4 w-4" />
+                  Baixar legenda original extraída (.srt)
+                </button>
+              )}
+
               {status === "completed" && (
                 <button
                   type="button"
@@ -590,6 +657,18 @@ export default function HomePage() {
         Processamento em lotes paralelos com contexto completo • Limite de 3
         legendas/dia por IP
       </footer>
+
+      {isVideoExtractorOpen && (
+        <VideoExtractorModal
+          isOpen={isVideoExtractorOpen}
+          initialFile={pendingVideoFile}
+          onClose={() => {
+            setIsVideoExtractorOpen(false);
+            setPendingVideoFile(null);
+          }}
+          onExtracted={handleVideoSubtitleExtracted}
+        />
+      )}
     </div>
   );
 }
