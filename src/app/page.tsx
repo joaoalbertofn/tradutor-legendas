@@ -7,6 +7,7 @@ import { useAuth, useClerk } from "@clerk/nextjs";
 import { Sparkles, RotateCcw, Download, Zap, BookOpen } from "lucide-react";
 import { GUIDES } from "@/lib/guides";
 import { BrandMark, BrandWordmark } from "@/components/BrandLogo";
+import { FooterCredits } from "@/components/FooterCredits";
 import { Header } from "@/components/Header";
 import {
   BuyCreditsModal,
@@ -27,13 +28,11 @@ const VideoExtractorModal = dynamic(
 );
 import {
   CHUNK_SIZE,
-  FULL_CONTEXT_BLOCK_THRESHOLD,
-  buildChunkContext,
-  buildFullContextTranscript,
   chunkSubtitleBlocks,
   createSubtitleBlob,
   getTranslatedFileName,
   parseSubtitle,
+  prepareBlocksForTranslation,
   reconstructSubtitle,
 } from "@/lib/subtitleParser";
 import { calculateEstimatedCostUsd } from "@/lib/pricing";
@@ -403,9 +402,9 @@ export default function HomePage() {
         text: b.text,
       }));
 
-      // Include up to 2 immediately preceding lines for local dialogue continuity
+      // Include up to 3 immediately preceding lines for local dialogue continuity
       const startIndex = chunkIndex * CHUNK_SIZE;
-      const prevSlice = allBlocks.slice(Math.max(0, startIndex - 2), startIndex);
+      const prevSlice = allBlocks.slice(Math.max(0, startIndex - 3), startIndex);
       const previousContext = prevSlice.map((b) => ({
         id: b.id,
         text: translationsRef.current[b.id] ?? b.text,
@@ -434,7 +433,7 @@ export default function HomePage() {
               items,
               style,
               glossary: glossary.trim() || undefined,
-              fullContext,
+              fullContext: fullContext || undefined,
               preferredModel: options?.preferredModel || undefined,
               previousContext: previousContext.length > 0 ? previousContext : undefined,
             }),
@@ -547,16 +546,26 @@ export default function HomePage() {
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    const chunks = chunkSubtitleBlocks(parsed.blocks, CHUNK_SIZE);
-    const cachedFullTranscript =
-      parsed.blocks.length <= FULL_CONTEXT_BLOCK_THRESHOLD
-        ? buildFullContextTranscript(parsed.blocks)
-        : undefined;
+    // Filter non-translatable symbols and deduplicate repeated pure-SDH cues (never spoken dialogue)
+    const { blocksToTranslate, presetTranslations, sdhDuplicateMap } =
+      prepareBlocksForTranslation(parsed.blocks);
+    const chunks = chunkSubtitleBlocks(blocksToTranslate, CHUNK_SIZE);
+
+    if (chunks.length === 0) {
+      translationsRef.current = { ...presetTranslations };
+      setTranslations({ ...presetTranslations });
+      setCompletedChunks(0);
+      setTotalChunks(0);
+      setEtaSeconds(0);
+      setErrorMessage(null);
+      setStatus("completed");
+      return;
+    }
 
     setStatus("translating");
     setErrorMessage(null);
-    setTranslations({});
-    translationsRef.current = {};
+    setTranslations({ ...presetTranslations });
+    translationsRef.current = { ...presetTranslations };
     setCompletedChunks(0);
     setTotalChunks(chunks.length);
     setEtaSeconds(null);
@@ -684,17 +693,11 @@ export default function HomePage() {
           if (currentIndex >= chunks.length) return;
 
           const chunk = chunks[currentIndex];
-          const chunkContext = buildChunkContext(
-            parsed.blocks,
-            currentIndex,
-            CHUNK_SIZE,
-            cachedFullTranscript
-          );
           const chunkResult = await translateChunkWithRetry(
             chunk,
             currentIndex,
-            parsed.blocks,
-            chunkContext,
+            blocksToTranslate,
+            "",
             sessionId,
             controller.signal,
             {
@@ -723,6 +726,14 @@ export default function HomePage() {
           for (const item of chunkResult.items) {
             batchMap[item.id] = item.text;
             translationsRef.current[item.id] = item.text;
+
+            const duplicateIds = sdhDuplicateMap.get(item.id);
+            if (duplicateIds) {
+              for (const dupId of duplicateIds) {
+                batchMap[dupId] = item.text;
+                translationsRef.current[dupId] = item.text;
+              }
+            }
           }
 
           finishedCount += 1;
@@ -1066,6 +1077,8 @@ export default function HomePage() {
               grátis por dia • Pacotes avulsos via Pix e Cartão
             </p>
           </div>
+
+          <FooterCredits />
         </div>
       </footer>
 

@@ -7,6 +7,9 @@ import {
   buildFullContextTranscript,
   buildChunkContext,
   decodeSubtitleBuffer,
+  isNonTranslatableCueText,
+  isPureSdhCueText,
+  prepareBlocksForTranslation,
 } from "./subtitleParser";
 
 describe("subtitleParser", () => {
@@ -206,5 +209,30 @@ describe("subtitleParser", () => {
     expect(ctx).not.toContain("[175] Dialogue line 175");
     expect(ctx).not.toContain("[265] Dialogue line 265");
     expect(ctx).not.toContain("[599] Dialogue line 599");
+  });
+
+  it("identifies non-translatable cues and deduplicates only pure SDH/CC tags, never spoken dialogue", () => {
+    expect(isNonTranslatableCueText("♪ ♪")).toBe(true);
+    expect(isNonTranslatableCueText("<i>...</i>")).toBe(true);
+    expect(isNonTranslatableCueText("Hello")).toBe(false);
+
+    expect(isPureSdhCueText("[music playing]")).toBe(true);
+    expect(isPureSdhCueText("<i>(sighs)</i>")).toBe(true);
+    expect(isPureSdhCueText("[Ali G] Switch off ya phones!")).toBe(false);
+    expect(isPureSdhCueText("Right.")).toBe(false);
+
+    const blocks = [
+      { id: 1, index: "1", timestamp: "00:00:01,000 --> 00:00:02,000", text: "♪" },
+      { id: 2, index: "2", timestamp: "00:00:03,000 --> 00:00:04,000", text: "[music playing]" },
+      { id: 3, index: "3", timestamp: "00:00:05,000 --> 00:00:06,000", text: "Right." },
+      { id: 4, index: "4", timestamp: "00:00:07,000 --> 00:00:08,000", text: "[music playing]" },
+      { id: 5, index: "5", timestamp: "00:00:09,000 --> 00:00:10,000", text: "Right." },
+    ];
+
+    const plan = prepareBlocksForTranslation(blocks);
+    expect(plan.presetTranslations).toEqual({ 1: "♪" });
+    // Blocks 2, 3, 5 go to AI; block 4 is deduplicated onto block 2; both "Right." lines (3 & 5) stay separate!
+    expect(plan.blocksToTranslate.map((b) => b.id)).toEqual([2, 3, 5]);
+    expect(plan.sdhDuplicateMap.get(2)).toEqual([4]);
   });
 });

@@ -4,15 +4,18 @@ Aplicação web em **Next.js (App Router)**, **TypeScript** e **Tailwind CSS** p
 
 ## Principais Recursos
 
-- **Parser e Reconstrutor 100% Lossless (`src/lib/subtitleParser.ts`)**:
+- **Parser, Deduplicação Segura e Reconstrutor 100% Lossless (`src/lib/subtitleParser.ts`)**:
   - Extrai `{ id, index, timestamp, text }` no cliente sem nunca enviar timestamps para a IA.
+  - Filtra blocos não-traduzíveis (ex.: linhas apenas com `♪`, pontuação ou números) e deduplica apenas tags puras de efeitos SDH/CC repetidas (ex.: `[music playing]`, `(sighs)`), mantendo 100% das falas de diálogo intactas para tradução contextual.
   - Mantém cabeçalhos `WEBVTT`, blocos `STYLE`/`REGION`/`NOTE`, cue settings e quebras de linha originais (`CRLF`/`LF`).
   - Exporta com sufixo `.pt-BR` (ex: `filme.srt` → `filme.pt-BR.srt`) e opção de **UTF-8 com BOM** para Smart TVs e players antigos.
-- **Arquitetura Anti-Timeout (Vercel Hobby Ready)**:
-  - O frontend divide a legenda em lotes de **40 blocos** e executa uma fila com **concorrência de 3 lotes simultâneos**, enviando o roteiro original completo em memória como contexto somente leitura para manter consistência de personagens e tom.
-  - Retry automático (até 2 tentativas com backoff exponencial) e validação estrita de correspondência 1:1 dos IDs.
+- **Arquitetura Rápida, Econômica e Anti-Timeout (Vercel Ready)**:
+  - O frontend divide a legenda em lotes de **70 blocos** e executa uma fila com **concorrência adaptativa de até 6 lotes simultâneos** (reduzindo automaticamente até 2 em caso de rate limit `429`), mantendo continuidade local via as 3 falas imediatamente anteriores (`<legendas_anteriores>`).
+  - **Codec ultra-compacto `ID|texto` (`src/lib/subtitleCodec.ts`)**: envia e recebe legendas em texto plano indexado (reduzindo ~40–45% do total de tokens frente ao JSON), com **fallback automático para JSON estruturado (`{id, text}[]`)** caso algum lote divirja na validação 1:1 dos IDs.
+  - Retry automático (até 2 tentativas com backoff exponencial) e validação de sessão em **1 único round-trip Redis via `pipeline()`**.
 - **Google Gemini (`@google/genai`)**:
-  - Usa `gemini-3.5-flash-lite` (~2–4s por lote de 40 blocos) com **timeout por modelo (20s)** e **fallback automático** entre modelos Flash (`gemini-3.5-flash`, `gemini-3.1-flash-lite`, `gemini-3.6-flash`, `gemini-3.8-flash`) em caso de pico de demanda (503) ou rate limit, usando **Structured Outputs (`responseSchema`)** em JSON e validação com **Zod**.
+  - Usa `gemini-3.5-flash-lite` (~2,5–4s por lote de 70 blocos) com **timeout por modelo (18s–22s)**, **cooldown inteligente** para erros `404`/`429`/`503`/`504`, `preferredModel` propagado entre lotes e **fallback automático** (`gemini-3.1-flash-lite`, `gemini-3.8-flash`).
+  - Suporte a override via variável `GEMINI_MODEL` (desativando `thinking` automaticamente quando suportado) e monitoramento de `thoughtsTokenCount`.
 - **Autenticação (Clerk) + Créditos Diários e Pacotes Avulsos (Mercado Pago)**:
   - Login rápido em modal via **Clerk** (`@clerk/nextjs` com localização `ptBR`).
   - **3 traduções grátis por dia** por usuário (com *lazy reset* de 24h sem cron job).

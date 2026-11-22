@@ -294,6 +294,90 @@ export function buildChunkContext(
 }
 
 /**
+ * Returns true if the subtitle text contains no translatable letters
+ * (e.g., empty, pure music symbols `♪`, punctuation `...`, or standalone numbers).
+ */
+export function isNonTranslatableCueText(text: string): boolean {
+  const withoutTags = text
+    .replace(/<[^>]+>/g, "")
+    .replace(/\{\\[^}]+\}/g, "")
+    .trim();
+  if (!withoutTags) return true;
+  return !/\p{L}/u.test(withoutTags);
+}
+
+/**
+ * Returns true ONLY if the entire cue consists exclusively of SDH/CC sound/event
+ * descriptions enclosed in [...] or (...) (e.g. `[music playing]`, `(sighs)`).
+ * Spoken dialogue (even short lines or lines prefixed with `[Speaker] ...`) returns false
+ * so context-dependent dialogue is NEVER deduplicated.
+ */
+export function isPureSdhCueText(text: string): boolean {
+  const withoutTags = text
+    .replace(/<[^>]+>/g, "")
+    .replace(/\{\\[^}]+\}/g, "")
+    .trim();
+  if (!withoutTags) return false;
+  const lines = withoutTags
+    .split(/\r?\n/)
+    .map((line) => line.replace(/[♪♫]/g, "").trim())
+    .filter(Boolean);
+  if (lines.length === 0) return false;
+  return lines.every(
+    (line) =>
+      (/^\[[^[\]]+\]$/.test(line) || /^\([^()]+\)$/.test(line)) &&
+      /\p{L}/u.test(line)
+  );
+}
+
+export interface PreparedTranslationPlan {
+  blocksToTranslate: SubtitleBlock[];
+  presetTranslations: Record<number, string>;
+  /** Maps representative block ID -> other block IDs sharing the exact same pure SDH cue */
+  sdhDuplicateMap: Map<number, number[]>;
+}
+
+/**
+ * Filters out non-translatable cues and safely deduplicates repeated identical pure-SDH cues
+ * (e.g. `[music playing]`, `(sighs)`) while keeping 100% of spoken dialogue intact for full
+ * context-aware translation.
+ */
+export function prepareBlocksForTranslation(
+  blocks: SubtitleBlock[]
+): PreparedTranslationPlan {
+  const blocksToTranslate: SubtitleBlock[] = [];
+  const presetTranslations: Record<number, string> = {};
+  const sdhDuplicateMap = new Map<number, number[]>();
+  const seenPureSdh = new Map<string, number>();
+
+  for (const block of blocks) {
+    if (isNonTranslatableCueText(block.text)) {
+      presetTranslations[block.id] = block.text;
+      continue;
+    }
+
+    if (isPureSdhCueText(block.text)) {
+      const key = block.text.trim();
+      const repId = seenPureSdh.get(key);
+      if (repId !== undefined) {
+        const list = sdhDuplicateMap.get(repId);
+        if (list) {
+          list.push(block.id);
+        } else {
+          sdhDuplicateMap.set(repId, [block.id]);
+        }
+        continue;
+      }
+      seenPureSdh.set(key, block.id);
+    }
+
+    blocksToTranslate.push(block);
+  }
+
+  return { blocksToTranslate, presetTranslations, sdhDuplicateMap };
+}
+
+/**
  * Generates the output filename with the `.pt-BR` suffix before the extension.
  * Example: `movie.srt` -> `movie.pt-BR.srt`, `episode.en.vtt` -> `episode.en.pt-BR.vtt`.
  */

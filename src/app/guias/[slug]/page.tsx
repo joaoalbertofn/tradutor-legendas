@@ -11,6 +11,7 @@ import {
   Lightbulb,
   Sparkles,
 } from "lucide-react";
+import { FooterCredits } from "@/components/FooterCredits";
 import { GuidesHeader } from "@/components/GuidesHeader";
 import { GUIDES, getGuideBySlug, getRelatedGuides } from "@/lib/guides";
 import { SITE_NAME, absoluteUrl } from "@/lib/siteConfig";
@@ -500,14 +501,17 @@ export default async function GuideArticlePage({ params }: GuidePageProps) {
       </main>
 
       <footer className="border-t border-zinc-900 py-6 text-center text-xs text-zinc-500">
-        <div className="mx-auto flex max-w-3xl flex-col items-center justify-between gap-2 px-4 sm:flex-row sm:px-6">
-          <span>{SITE_NAME} — Tradutor de Legendas .SRT e .VTT para PT-BR</span>
-          <Link
-            href="/"
-            className="font-medium text-emerald-400 transition-colors hover:text-emerald-300"
-          >
-            Traduzir legenda grátis →
-          </Link>
+        <div className="mx-auto flex max-w-3xl flex-col gap-3 px-4 sm:px-6">
+          <div className="flex flex-col items-center justify-between gap-2 sm:flex-row">
+            <span>{SITE_NAME} — Tradutor de Legendas .SRT e .VTT para PT-BR</span>
+            <Link
+              href="/"
+              className="font-medium text-emerald-400 transition-colors hover:text-emerald-300"
+            >
+              Traduzir legenda grátis →
+            </Link>
+          </div>
+          <FooterCredits />
         </div>
       </footer>
     </div>

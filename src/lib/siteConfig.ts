@@ -16,6 +16,8 @@ export const SITE_NAME = "LegendasBR";
 export const SITE_TAGLINE = "Tradutor de Legendas .SRT e .VTT para PT-BR";
 export const SITE_DESCRIPTION =
   "Traduza legendas .srt e .vtt de qualquer idioma para Português do Brasil natural preservando 100% dos timestamps, índices e formatações originais.";
+export const SITE_AUTHOR = "João Alberto";
+export const SITE_CONTACT_EMAIL = "joaoalbertofn@gmail.com";
 
 export function absoluteUrl(path = "/"): string {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
