@@ -1,32 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { getRedis } from "@/lib/redis";
 import {
   claimStatsIncrement,
+  claimUserStatsIncrement,
   extractClientIp,
-  getQuotaForIp,
   isOriginAllowed,
 } from "@/lib/quota";
 
 const STATS_KEY = "stats:subtitles_translated";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const ip = extractClientIp(request);
-    const [redis, quota] = [getRedis(), await getQuotaForIp(ip)];
+    const redis = getRedis();
 
     if (redis) {
       const total = Number((await redis.get<number>(STATS_KEY)) ?? 0);
       return NextResponse.json({
         totalTranslated: total,
         source: "redis",
-        quota,
       });
     }
 
     return NextResponse.json({
       totalTranslated: 0,
       source: "fallback",
-      quota,
     });
   } catch (error) {
     console.error("[GET /api/stats] Error:", error);
@@ -34,7 +32,6 @@ export async function GET(request: NextRequest) {
       {
         totalTranslated: 0,
         source: "fallback",
-        quota: { used: 0, limit: 3, remaining: 3, source: "memory" },
       },
       { status: 200 }
     );
@@ -59,10 +56,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const { userId } = await auth();
     const ip = extractClientIp(request);
-    const claimed = await claimStatsIncrement(sessionId, ip);
+    const claimed = userId
+      ? await claimUserStatsIncrement(sessionId, userId)
+      : await claimStatsIncrement(sessionId, ip);
     const redis = getRedis();
-    const quota = await getQuotaForIp(ip);
 
     if (!claimed) {
       const currentTotal = redis
@@ -71,7 +70,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         totalTranslated: currentTotal,
         source: redis ? "redis" : "fallback",
-        quota,
       });
     }
 
@@ -80,14 +78,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         totalTranslated: total,
         source: "redis",
-        quota,
       });
     }
 
     return NextResponse.json({
       totalTranslated: 0,
       source: "fallback",
-      quota,
     });
   } catch (error) {
     console.error("[POST /api/stats] Error:", error);

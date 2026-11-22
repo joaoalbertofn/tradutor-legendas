@@ -39,15 +39,31 @@ export interface QuotaInfo {
   unlimited?: boolean;
 }
 
+export type CreditPlanId = "10_credits" | "50_credits";
+
+export interface UserCreditsInfo {
+  userId: string;
+  freeUsedToday: number;
+  freeLimit: number;
+  freeRemaining: number;
+  freeResetAt: string;
+  paidCredits: number;
+  paidExpiresAt: string | null;
+  totalAvailable: number;
+  updatedAt: string;
+  source: "supabase" | "memory";
+}
+
 export interface StatsResponse {
   totalTranslated: number;
   source: "redis" | "fallback";
-  quota: QuotaInfo;
+  quota?: QuotaInfo;
 }
 
 export interface SessionResponse {
   sessionId: string;
-  quota: QuotaInfo;
+  credits: UserCreditsInfo;
+  consumedFrom: "free" | "paid";
 }
 
 export type TranslationStatus =
@@ -56,3 +72,73 @@ export type TranslationStatus =
   | "completed"
   | "error"
   | "cancelled";
+
+export type SubtitleExtension = ".srt" | ".vtt";
+
+export type TranslationSourceType = "file_upload" | "video_extraction";
+
+export type TranslationLogStatus = "success" | "error" | "cancelled";
+
+export interface TranslationChunkMetrics {
+  promptTokens: number;
+  outputTokens: number;
+  totalTokens?: number;
+  durationMs: number;
+}
+
+export interface TranslationLogPayload {
+  sessionId: string;
+  fileName: string;
+  extension: SubtitleExtension;
+  sourceType: TranslationSourceType;
+  status: TranslationLogStatus;
+  errorMessage?: string | null;
+  model?: string | null;
+  extractionDurationMs: number;
+  translationDurationMs: number;
+  totalCues: number;
+  totalChunks: number;
+  retriesCount: number;
+  totalPromptTokens: number;
+  totalOutputTokens: number;
+  estimatedCostUsd: number;
+}
+
+export interface TranslationLogRecord extends TranslationLogPayload {
+  id: string;
+  createdAt: string;
+}
+
+export interface TranslationLogsSummary {
+  totalRuns: number;
+  totalTranslated: number;
+  totalErrors: number;
+  totalCancelled: number;
+  totalCuesTranslated: number;
+  totalCostUsd: number;
+  totalCostBrl: number;
+  totalPromptTokens: number;
+  totalOutputTokens: number;
+  avgDurationMs: number;
+  avgExtractionDurationMs: number;
+  totalChunks: number;
+  totalRetries: number;
+  retryRate: number;
+  bottlenecks: {
+    slowDurationThresholdMs: number;
+    highTokensThreshold: number;
+  };
+}
+
+export interface TranslationLogsListResponse {
+  logs: TranslationLogRecord[];
+  summary: TranslationLogsSummary;
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+  };
+  source: "supabase" | "local";
+  usdToBrlRate: number;
+}

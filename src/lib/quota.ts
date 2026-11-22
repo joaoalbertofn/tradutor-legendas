@@ -578,3 +578,253 @@ export async function claimStatsIncrement(
   session.counted = true;
   return true;
 }
+
+// ============================================================================
+// Clerk User-Bound Translation Sessions (1 credit consumed per subtitle file)
+// ============================================================================
+
+interface UserMemorySession {
+  userId: string;
+  consumedFrom: "free" | "paid";
+  chunksUsed: number;
+  successfulChunks: number;
+  counted: boolean;
+  expiresAt: number;
+}
+
+type UserRedisSessionHash = {
+  userId: string;
+  consumedFrom: "free" | "paid";
+  chunksUsed: number;
+  successfulChunks: number;
+  counted: number;
+};
+
+const globalForUserSessions = globalThis as unknown as {
+  __userSessionMap?: Map<string, UserMemorySession>;
+};
+
+const userSessionMap = (globalForUserSessions.__userSessionMap ??= new Map<
+  string,
+  UserMemorySession
+>());
+
+function hashUserId(userId: string): string {
+  return crypto
+    .createHmac("sha256", getSigningSecret())
+    .update(`user:${userId}`)
+    .digest("hex")
+    .slice(0, 16);
+}
+
+/**
+ * Creates a unique signed sessionId bound to a Clerk userId after 1 credit has been consumed.
+ * Subsequent chunks of the same subtitle file pass this sessionId so no extra credits are deducted.
+ */
+export async function createUserTranslationSession(
+  userId: string,
+  consumedFrom: "free" | "paid"
+): Promise<string> {
+  const userHash = hashUserId(userId);
+  const uuid = crypto.randomUUID();
+  const expSec = Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS;
+  const sessionId = signSessionToken(uuid, userHash, expSec);
+  const redis = getRedis();
+
+  if (redis) {
+    const sessionKey = `session:user_translate:${uuid}`;
+    await redis.hset(sessionKey, {
+      userId: userHash,
+      consumedFrom,
+      chunksUsed: 0,
+      successfulChunks: 0,
+      counted: 0,
+    });
+    await redis.expire(sessionKey, SESSION_TTL_SECONDS);
+  } else {
+    if (userSessionMap.size > 200) {
+      const now = Date.now();
+      for (const [key, session] of userSessionMap.entries()) {
+        if (now > session.expiresAt) {
+          userSessionMap.delete(key);
+        }
+      }
+    }
+    userSessionMap.set(uuid, {
+      userId: userHash,
+      consumedFrom,
+      chunksUsed: 0,
+      successfulChunks: 0,
+      counted: false,
+      expiresAt: expSec * 1000,
+    });
+  }
+
+  return sessionId;
+}
+
+export async function validateUserTranslationSession(
+  sessionId: string,
+  userId: string
+): Promise<{ valid: boolean; reason?: string }> {
+  const userHash = hashUserId(userId);
+  const tokenCheck = verifySessionToken(sessionId, userHash);
+
+  if (!tokenCheck.valid || !tokenCheck.uuid) {
+    return {
+      valid: false,
+      reason: tokenCheck.expired
+        ? "Sessão de tradução expirada."
+        : "Sessão de tradução inválida ou não autorizada.",
+    };
+  }
+
+  const uuid = tokenCheck.uuid;
+  const redis = getRedis();
+
+  if (redis) {
+    const sessionKey = `session:user_translate:${uuid}`;
+    const session = await redis.hgetall<UserRedisSessionHash>(sessionKey);
+    if (!session || !session.userId) {
+      return { valid: false, reason: "Sessão de tradução expirada ou encerrada." };
+    }
+    if (session.userId !== userHash) {
+      return { valid: false, reason: "Sessão não pertence ao usuário autenticado." };
+    }
+
+    const updatedChunks = await redis.hincrby(sessionKey, "chunksUsed", 1);
+    if (updatedChunks > MAX_CHUNKS_PER_SESSION) {
+      return {
+        valid: false,
+        reason: "Limite máximo de lotes excedido para esta legenda.",
+      };
+    }
+
+    return { valid: true };
+  }
+
+  const session = userSessionMap.get(uuid);
+  if (!session) {
+    userSessionMap.set(uuid, {
+      userId: userHash,
+      consumedFrom: "free",
+      chunksUsed: 1,
+      successfulChunks: 0,
+      counted: false,
+      expiresAt: Date.now() + SESSION_TTL_SECONDS * 1000,
+    });
+    return { valid: true };
+  }
+
+  if (Date.now() > session.expiresAt) {
+    userSessionMap.delete(uuid);
+    return { valid: false, reason: "Sessão de tradução expirada." };
+  }
+
+  if (session.chunksUsed >= MAX_CHUNKS_PER_SESSION) {
+    return {
+      valid: false,
+      reason: "Limite máximo de lotes excedido para esta legenda.",
+    };
+  }
+
+  session.chunksUsed += 1;
+  return { valid: true };
+}
+
+export async function markUserSessionChunkSuccess(
+  sessionId: string,
+  userId: string
+): Promise<void> {
+  const userHash = hashUserId(userId);
+  const tokenCheck = verifySessionToken(sessionId, userHash);
+  if (!tokenCheck.valid || !tokenCheck.uuid) return;
+
+  const uuid = tokenCheck.uuid;
+  const redis = getRedis();
+
+  if (redis) {
+    const sessionKey = `session:user_translate:${uuid}`;
+    await redis.hincrby(sessionKey, "successfulChunks", 1);
+    return;
+  }
+
+  const session = userSessionMap.get(uuid);
+  if (session) {
+    session.successfulChunks += 1;
+  }
+}
+
+/**
+ * Checks if a user session is eligible for a credit refund (0 chunks succeeded)
+ * and atomically invalidates the session so it cannot be refunded twice.
+ */
+export async function consumeRefundEligibilityForUserSession(
+  sessionId: string,
+  userId: string
+): Promise<{ eligible: boolean; consumedFrom?: "free" | "paid" }> {
+  const userHash = hashUserId(userId);
+  const tokenCheck = verifySessionToken(sessionId, userHash);
+  if (!tokenCheck.valid || !tokenCheck.uuid) {
+    return { eligible: false };
+  }
+
+  const uuid = tokenCheck.uuid;
+  const redis = getRedis();
+
+  if (redis) {
+    const sessionKey = `session:user_translate:${uuid}`;
+    const session = await redis.hgetall<UserRedisSessionHash>(sessionKey);
+    if (
+      session &&
+      session.userId === userHash &&
+      Number(session.successfulChunks ?? 0) === 0
+    ) {
+      const deleted = await redis.del(sessionKey);
+      if (deleted === 1) {
+        return {
+          eligible: true,
+          consumedFrom: session.consumedFrom === "paid" ? "paid" : "free",
+        };
+      }
+    }
+    return { eligible: false };
+  }
+
+  const session = userSessionMap.get(uuid);
+  if (session && session.userId === userHash && session.successfulChunks === 0) {
+    userSessionMap.delete(uuid);
+    return { eligible: true, consumedFrom: session.consumedFrom };
+  }
+
+  return { eligible: false };
+}
+
+export async function claimUserStatsIncrement(
+  sessionId: string,
+  userId: string
+): Promise<boolean> {
+  const userHash = hashUserId(userId);
+  const tokenCheck = verifySessionToken(sessionId, userHash);
+  if (!tokenCheck.valid || !tokenCheck.uuid) return false;
+
+  const uuid = tokenCheck.uuid;
+  const redis = getRedis();
+
+  if (redis) {
+    const sessionKey = `session:user_translate:${uuid}`;
+    const session = await redis.hgetall<UserRedisSessionHash>(sessionKey);
+    if (!session || session.userId !== userHash) return false;
+    if (Number(session.successfulChunks ?? 0) <= 0) return false;
+
+    const countClaim = await redis.hincrby(sessionKey, "counted", 1);
+    return countClaim === 1;
+  }
+
+  const session = userSessionMap.get(uuid);
+  if (!session || session.userId !== userHash) return false;
+  if (session.successfulChunks <= 0 || session.counted) return false;
+
+  session.counted = true;
+  return true;
+}

@@ -2,8 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { Sparkles, RotateCcw, Download } from "lucide-react";
+import { useAuth, useClerk } from "@clerk/nextjs";
+import { Sparkles, RotateCcw, Download, Zap } from "lucide-react";
 import { Header } from "@/components/Header";
+import {
+  BuyCreditsModal,
+  type BuyCreditsModalReason,
+} from "@/components/BuyCreditsModal";
 import { SubtitleUploader } from "@/components/SubtitleUploader";
 import { TranslationOptions } from "@/components/TranslationOptions";
 import { TranslationProgress } from "@/components/TranslationProgress";
@@ -28,15 +33,21 @@ import {
   parseSubtitle,
   reconstructSubtitle,
 } from "@/lib/subtitleParser";
+import { calculateEstimatedCostUsd } from "@/lib/pricing";
 import type {
   ParsedSubtitle,
-  QuotaInfo,
   SessionResponse,
   StatsResponse,
   SubtitleBlock,
+  SubtitleExtension,
+  TranslationChunkMetrics,
   TranslationItem,
+  TranslationLogPayload,
+  TranslationLogStatus,
+  TranslationSourceType,
   TranslationStatus,
   TranslationStyle,
+  UserCreditsInfo,
 } from "@/lib/types";
 
 const CONCURRENCY = 3;
@@ -106,10 +117,42 @@ function writeLocalCounter(value: number): void {
   }
 }
 
+function createTelemetrySessionId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+function sendTranslationLogFireAndForget(payload: TranslationLogPayload): void {
+  try {
+    void fetch("/api/logs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // Never disrupt UX for telemetry failures
+  }
+}
+
 export default function HomePage() {
+  const { isLoaded: isAuthLoaded, isSignedIn, userId } = useAuth();
+  const { openSignIn } = useClerk();
+
   const [totalTranslated, setTotalTranslated] = useState<number | null>(null);
   const [statsSource, setStatsSource] = useState<"redis" | "fallback">("fallback");
-  const [quota, setQuota] = useState<QuotaInfo | null>(null);
+  const [credits, setCredits] = useState<UserCreditsInfo | null>(null);
+  const [creditsLoading, setCreditsLoading] = useState(false);
+
+  const [isBuyCreditsOpen, setIsBuyCreditsOpen] = useState(false);
+  const [buyCreditsReason, setBuyCreditsReason] =
+    useState<BuyCreditsModalReason>("manual");
 
   const [file, setFile] = useState<File | null>(null);
   const [parsed, setParsed] = useState<ParsedSubtitle | null>(null);
@@ -122,6 +165,9 @@ export default function HomePage() {
     content: string;
     trackLabel: string;
   } | null>(null);
+  const [sourceType, setSourceType] =
+    useState<TranslationSourceType>("file_upload");
+  const [extractionDurationMs, setExtractionDurationMs] = useState<number>(0);
 
   const [style, setStyle] = useState<TranslationStyle>("natural");
   const [glossary, setGlossary] = useState("");
@@ -136,8 +182,25 @@ export default function HomePage() {
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const translationsRef = useRef<Record<number, string>>({});
+  const pendingTranslateAfterSignInRef = useRef(false);
 
-  // Load initial global counter and daily IP quota
+  const fetchUserCredits = useCallback(async () => {
+    setCreditsLoading(true);
+    try {
+      const res = await fetch("/api/credits", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = (await res.json()) as { credits?: UserCreditsInfo };
+      if (data.credits) {
+        setCredits(data.credits);
+      }
+    } catch {
+      // Ignore transient errors
+    } finally {
+      setCreditsLoading(false);
+    }
+  }, []);
+
+  // Load initial global counter
   useEffect(() => {
     let active = true;
     async function loadStats() {
@@ -148,7 +211,6 @@ export default function HomePage() {
         if (!active) return;
 
         setStatsSource(data.source);
-        setQuota(data.quota);
 
         if (data.source === "redis") {
           setTotalTranslated(data.totalTranslated);
@@ -169,6 +231,57 @@ export default function HomePage() {
     };
   }, []);
 
+  // Load authenticated user credits whenever Clerk session changes
+  useEffect(() => {
+    if (!isAuthLoaded) return;
+    if (!isSignedIn || !userId) {
+      setCredits(null);
+      return;
+    }
+    void fetchUserCredits();
+  }, [isAuthLoaded, isSignedIn, userId, fetchUserCredits]);
+
+  // Detect return from Mercado Pago Checkout Pro (?payment=success|pending|failure)
+  useEffect(() => {
+    if (!isAuthLoaded || !isSignedIn) return;
+    const params = new URLSearchParams(window.location.search);
+    const paymentState = params.get("payment");
+    if (
+      paymentState === "success" ||
+      paymentState === "pending" ||
+      paymentState === "failure"
+    ) {
+      setBuyCreditsReason(
+        paymentState === "success"
+          ? "payment_success"
+          : paymentState === "pending"
+          ? "payment_pending"
+          : "payment_failure"
+      );
+      setIsBuyCreditsOpen(true);
+
+      // Clean Mercado Pago return query params from URL
+      [
+        "payment",
+        "collection_id",
+        "collection_status",
+        "payment_id",
+        "status",
+        "external_reference",
+        "payment_type",
+        "merchant_order_id",
+        "preference_id",
+        "site_id",
+        "processing_mode",
+        "merchant_account_id",
+      ].forEach((key) => params.delete(key));
+
+      const nextSearch = params.toString();
+      const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}`;
+      window.history.replaceState({}, "", nextUrl);
+    }
+  }, [isAuthLoaded, isSignedIn]);
+
   const outputFileName = useMemo(() => {
     if (!file || !parsed) return "legenda.pt-BR.srt";
     return getTranslatedFileName(file.name, parsed.format);
@@ -184,6 +297,8 @@ export default function HomePage() {
     setTotalChunks(0);
     setEtaSeconds(null);
     setExtractedOriginal(null);
+    setSourceType("file_upload");
+    setExtractionDurationMs(0);
 
     const result = parseSubtitle(content, selectedFile.name);
     if (result.blocks.length === 0) {
@@ -210,6 +325,8 @@ export default function HomePage() {
         content: payload.content,
         trackLabel: payload.trackLabel,
       });
+      setSourceType("video_extraction");
+      setExtractionDurationMs(payload.extractionDurationMs);
       setPendingVideoFile(null);
     },
     [handleFileSelected]
@@ -235,6 +352,8 @@ export default function HomePage() {
     setParsed(null);
     setParseError(null);
     setExtractedOriginal(null);
+    setSourceType("file_upload");
+    setExtractionDurationMs(0);
     setStatus("idle");
     setTranslations({});
     translationsRef.current = {};
@@ -257,8 +376,13 @@ export default function HomePage() {
       allBlocks: SubtitleBlock[],
       fullContext: string,
       sessionId: string,
-      signal: AbortSignal
-    ): Promise<TranslationItem[]> => {
+      signal: AbortSignal,
+      onRetry?: () => void
+    ): Promise<{
+      items: TranslationItem[];
+      metrics: TranslationChunkMetrics;
+      model?: string;
+    }> => {
       const items: TranslationItem[] = chunk.map((b) => ({
         id: b.id,
         text: b.text,
@@ -277,6 +401,10 @@ export default function HomePage() {
       for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         if (signal.aborted) {
           throw new DOMException("Aborted", "AbortError");
+        }
+
+        if (attempt > 0) {
+          onRetry?.();
         }
 
         const attemptControl = createAttemptSignal(signal, FETCH_TIMEOUT_MS);
@@ -326,7 +454,18 @@ export default function HomePage() {
                 lastError = new Error("IDs retornados não correspondem ao lote enviado.");
                 if (attempt === MAX_RETRIES) throw lastError;
               } else {
-                return translatedItems;
+                const rawMetrics = data.metrics as Partial<TranslationChunkMetrics> | undefined;
+                const metrics: TranslationChunkMetrics = {
+                  promptTokens: Number(rawMetrics?.promptTokens) || 0,
+                  outputTokens: Number(rawMetrics?.outputTokens) || 0,
+                  totalTokens: Number(rawMetrics?.totalTokens) || undefined,
+                  durationMs: Number(rawMetrics?.durationMs) || 0,
+                };
+                return {
+                  items: translatedItems,
+                  metrics,
+                  model: typeof data.model === "string" ? data.model : undefined,
+                };
               }
             }
           }
@@ -361,6 +500,20 @@ export default function HomePage() {
   const handleStartTranslation = useCallback(async () => {
     if (!parsed || !file) return;
 
+    // Require Clerk authentication before starting translation
+    if (!isSignedIn) {
+      pendingTranslateAfterSignInRef.current = true;
+      openSignIn();
+      return;
+    }
+
+    // If we already know the user has 0 available credits, open purchase modal immediately
+    if (credits !== null && credits.totalAvailable === 0) {
+      setBuyCreditsReason("limit_reached");
+      setIsBuyCreditsOpen(true);
+      return;
+    }
+
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
@@ -381,8 +534,63 @@ export default function HomePage() {
     let activeSessionId: string | null = null;
     let finishedCount = 0;
 
+    // Per-file telemetry accumulator
+    const telemetry = {
+      sessionId: createTelemetrySessionId(),
+      fileName: file.name,
+      extension: (parsed.format === "vtt" ? ".vtt" : ".srt") as SubtitleExtension,
+      sourceType,
+      extractionDurationMs:
+        sourceType === "video_extraction" ? extractionDurationMs : 0,
+      totalCues: parsed.blocks.length,
+      totalChunks: chunks.length,
+      retriesCount: 0,
+      totalPromptTokens: 0,
+      totalOutputTokens: 0,
+      model: null as string | null,
+    };
+
+    let translationStartMs: number | null = null;
+    let logDispatched = false;
+
+    const dispatchTelemetryLog = (
+      finalStatus: TranslationLogStatus,
+      finalError?: string | null
+    ) => {
+      if (logDispatched) return;
+      logDispatched = true;
+
+      const translationDurationMs =
+        translationStartMs !== null
+          ? Math.max(0, Math.round(performance.now() - translationStartMs))
+          : 0;
+
+      const estimatedCostUsd = calculateEstimatedCostUsd(
+        telemetry.totalPromptTokens,
+        telemetry.totalOutputTokens
+      );
+
+      sendTranslationLogFireAndForget({
+        sessionId: telemetry.sessionId,
+        fileName: telemetry.fileName,
+        extension: telemetry.extension,
+        sourceType: telemetry.sourceType,
+        status: finalStatus,
+        errorMessage: finalError ?? null,
+        model: telemetry.model,
+        extractionDurationMs: telemetry.extractionDurationMs,
+        translationDurationMs,
+        totalCues: telemetry.totalCues,
+        totalChunks: telemetry.totalChunks,
+        retriesCount: telemetry.retriesCount,
+        totalPromptTokens: telemetry.totalPromptTokens,
+        totalOutputTokens: telemetry.totalOutputTokens,
+        estimatedCostUsd,
+      });
+    };
+
     try {
-      // 1. Acquire translation session & verify daily IP quota (3 subtitles/day/IP)
+      // 1. Acquire translation session & consume 1 credit (free daily quota first, then paid credits)
       const sessionRes = await fetch("/api/translate/session", {
         method: "POST",
         signal: controller.signal,
@@ -390,20 +598,36 @@ export default function HomePage() {
       const sessionData = await sessionRes.json().catch(() => ({}));
 
       if (!sessionRes.ok) {
-        if (sessionData.quota) {
-          setQuota(sessionData.quota);
+        if (sessionData.credits) {
+          setCredits(sessionData.credits as UserCreditsInfo);
         }
+
+        if (sessionRes.status === 401) {
+          setStatus("idle");
+          pendingTranslateAfterSignInRef.current = true;
+          openSignIn();
+          return;
+        }
+
+        if (sessionRes.status === 402) {
+          setStatus("idle");
+          setBuyCreditsReason("limit_reached");
+          setIsBuyCreditsOpen(true);
+          return;
+        }
+
         throw new Error(
           sessionData.error || "Não foi possível iniciar a sessão de tradução."
         );
       }
 
-      const { sessionId, quota: updatedQuota } = sessionData as SessionResponse;
+      const { sessionId, credits: updatedCredits } = sessionData as SessionResponse;
       activeSessionId = sessionId;
-      setQuota(updatedQuota);
+      setCredits(updatedCredits);
 
       // 2. Concurrent queue with 3 parallel workers using hybrid context
       const startTime = Date.now();
+      translationStartMs = performance.now();
       let nextChunkIndex = 0;
 
       const worker = async () => {
@@ -420,19 +644,28 @@ export default function HomePage() {
             CHUNK_SIZE,
             cachedFullTranscript
           );
-          const translatedItems = await translateChunkWithRetry(
+          const chunkResult = await translateChunkWithRetry(
             chunk,
             currentIndex,
             parsed.blocks,
             chunkContext,
             sessionId,
-            controller.signal
+            controller.signal,
+            () => {
+              telemetry.retriesCount += 1;
+            }
           );
 
           if (controller.signal.aborted) return;
 
+          telemetry.totalPromptTokens += chunkResult.metrics.promptTokens;
+          telemetry.totalOutputTokens += chunkResult.metrics.outputTokens;
+          if (chunkResult.model) {
+            telemetry.model = chunkResult.model;
+          }
+
           const batchMap: Record<number, string> = {};
-          for (const item of translatedItems) {
+          for (const item of chunkResult.items) {
             batchMap[item.id] = item.text;
             translationsRef.current[item.id] = item.text;
           }
@@ -451,10 +684,14 @@ export default function HomePage() {
       const workerCount = Math.min(CONCURRENCY, chunks.length);
       await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted) {
+        dispatchTelemetryLog("cancelled");
+        return;
+      }
 
       setStatus("completed");
       setEtaSeconds(0);
+      dispatchTelemetryLog("success");
 
       // 3. Increment global counter on completion (authenticated & idempotent via sessionId)
       try {
@@ -484,7 +721,7 @@ export default function HomePage() {
     } catch (err) {
       const isCancelled = err instanceof DOMException && err.name === "AbortError";
 
-      // Only request quota refund if 0 chunks succeeded (server also enforces this strictly)
+      // Only request credit refund if 0 chunks succeeded (server also enforces this strictly)
       if (activeSessionId && finishedCount === 0 && !isCancelled) {
         fetch("/api/translate/session", {
           method: "DELETE",
@@ -493,24 +730,51 @@ export default function HomePage() {
         })
           .then((r) => r.json())
           .then((d) => {
-            if (d?.quota) setQuota(d.quota);
+            if (d?.credits) setCredits(d.credits as UserCreditsInfo);
           })
           .catch(() => {});
       }
 
       if (isCancelled) {
+        dispatchTelemetryLog("cancelled");
         setStatus("cancelled");
         return;
       }
       controller.abort();
-      setStatus("error");
-      setErrorMessage(
+      const message =
         err instanceof Error
           ? err.message
-          : "Ocorreu um erro inesperado durante a tradução."
-      );
+          : "Ocorreu um erro inesperado durante a tradução.";
+      dispatchTelemetryLog("error", message);
+      setStatus("error");
+      setErrorMessage(message);
     }
-  }, [parsed, file, translateChunkWithRetry, statsSource]);
+  }, [
+    parsed,
+    file,
+    isSignedIn,
+    openSignIn,
+    credits,
+    sourceType,
+    extractionDurationMs,
+    translateChunkWithRetry,
+    statsSource,
+  ]);
+
+  // Auto-resume translation if the user clicked "Traduzir" while signed out and just signed in
+  useEffect(() => {
+    if (
+      isAuthLoaded &&
+      isSignedIn &&
+      pendingTranslateAfterSignInRef.current &&
+      parsed &&
+      file &&
+      status !== "translating"
+    ) {
+      pendingTranslateAfterSignInRef.current = false;
+      void handleStartTranslation();
+    }
+  }, [isAuthLoaded, isSignedIn, parsed, file, status, handleStartTranslation]);
 
   const handleDownload = useCallback(() => {
     if (!parsed) return;
@@ -532,7 +796,15 @@ export default function HomePage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Header totalTranslated={totalTranslated} quota={quota} />
+      <Header
+        totalTranslated={totalTranslated}
+        credits={credits}
+        creditsLoading={creditsLoading}
+        onOpenBuyCredits={() => {
+          setBuyCreditsReason("manual");
+          setIsBuyCreditsOpen(true);
+        }}
+      />
 
       <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-4 py-10 sm:px-6 sm:py-14">
         {/* Hero */}
@@ -587,10 +859,23 @@ export default function HomePage() {
         {/* Primary Action Button */}
         {parsed && status !== "translating" && (
           <div className="space-y-2.5">
-            {quota !== null && !quota.unlimited && quota.remaining === 0 && (
-              <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-200">
-                Você atingiu o limite diário gratuito de {quota.limit} legendas
-                por IP. A cota é renovada automaticamente às 00:00 UTC.
+            {isSignedIn && credits !== null && credits.totalAvailable === 0 && (
+              <div className="flex flex-col items-start justify-between gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-xs text-amber-200 sm:flex-row sm:items-center">
+                <span>
+                  Você já usou suas {credits.freeLimit} traduções grátis de hoje.
+                  Compre um pacote avulso a partir de R$ 3,00 para continuar.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBuyCreditsReason("limit_reached");
+                    setIsBuyCreditsOpen(true);
+                  }}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-zinc-950 transition-colors hover:bg-emerald-400"
+                >
+                  <Zap className="h-3.5 w-3.5" />
+                  Comprar créditos
+                </button>
               </div>
             )}
             <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-end">
@@ -619,8 +904,7 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={handleStartTranslation}
-                disabled={quota !== null && !quota.unlimited && quota.remaining === 0}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-semibold text-zinc-950 shadow-lg shadow-emerald-500/15 transition-all hover:bg-emerald-400 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500 disabled:shadow-none sm:w-auto"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-semibold text-zinc-950 shadow-lg shadow-emerald-500/15 transition-all hover:bg-emerald-400 active:scale-[0.99] sm:w-auto"
               >
                 <Sparkles className="h-4 w-4" />
                 {status === "error" || status === "cancelled"
@@ -654,8 +938,8 @@ export default function HomePage() {
       </main>
 
       <footer className="border-t border-zinc-900 py-6 text-center text-xs text-zinc-600">
-        Processamento em lotes paralelos com contexto completo • Limite de 3
-        legendas/dia por IP
+        Processamento em lotes paralelos com contexto completo • 3 traduções
+        grátis por dia • Pacotes avulsos via Pix e Cartão
       </footer>
 
       {isVideoExtractorOpen && (
@@ -669,6 +953,14 @@ export default function HomePage() {
           onExtracted={handleVideoSubtitleExtracted}
         />
       )}
+
+      <BuyCreditsModal
+        isOpen={isBuyCreditsOpen}
+        credits={credits}
+        reason={buyCreditsReason}
+        onClose={() => setIsBuyCreditsOpen(false)}
+        onCreditsUpdated={(updated) => setCredits(updated)}
+      />
     </div>
   );
 }

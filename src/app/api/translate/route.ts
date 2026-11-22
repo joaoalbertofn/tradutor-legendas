@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
 import { z } from "zod";
 import {
-  extractClientIp,
   isOriginAllowed,
-  markSessionChunkSuccess,
-  validateTranslationSession,
+  markUserSessionChunkSuccess,
+  validateUserTranslationSession,
 } from "@/lib/quota";
 import type { TranslationStyle } from "@/lib/types";
 
@@ -208,8 +208,15 @@ export async function POST(request: NextRequest) {
     const { sessionId, items, style, glossary, fullContext, previousContext } =
       parsed.data;
 
-    const ip = extractClientIp(request);
-    const sessionCheck = await validateTranslationSession(sessionId, ip);
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Autenticação obrigatória para traduzir." },
+        { status: 401 }
+      );
+    }
+
+    const sessionCheck = await validateUserTranslationSession(sessionId, userId);
     if (!sessionCheck.valid) {
       return NextResponse.json(
         { error: sessionCheck.reason ?? "Sessão inválida." },
@@ -244,6 +251,7 @@ export async function POST(request: NextRequest) {
       const effectiveTimeout = Math.min(candidate.timeoutMs, remainingBudget);
 
       try {
+        const geminiStartMs = performance.now();
         const response = await ai.models.generateContent({
           model: candidate.name,
           contents: userPrompt,
@@ -277,6 +285,18 @@ export async function POST(request: NextRequest) {
             },
           },
         });
+        const durationMs = Math.max(
+          0,
+          Math.round(performance.now() - geminiStartMs)
+        );
+
+        const usage = response.usageMetadata;
+        const promptTokens = usage?.promptTokenCount ?? 0;
+        const outputTokens =
+          usage?.candidatesTokenCount ??
+          Math.max(0, (usage?.totalTokenCount ?? 0) - promptTokens);
+        const totalTokens =
+          usage?.totalTokenCount ?? promptTokens + outputTokens;
 
         const rawText = response.text;
         if (!rawText) {
@@ -324,11 +344,17 @@ export async function POST(request: NextRequest) {
           text: returnedMap.get(item.id)!,
         }));
 
-        await markSessionChunkSuccess(sessionId, ip);
+        await markUserSessionChunkSuccess(sessionId, userId);
 
         return NextResponse.json({
           translations: orderedTranslations,
           model: candidate.name,
+          metrics: {
+            promptTokens,
+            outputTokens,
+            totalTokens,
+            durationMs,
+          },
         });
       } catch (err: unknown) {
         const status = getErrorStatus(err);

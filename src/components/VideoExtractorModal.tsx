@@ -27,6 +27,7 @@ export interface ExtractedSubtitlePayload {
   fileName: string;
   cueCount: number;
   trackLabel: string;
+  extractionDurationMs: number;
 }
 
 interface VideoExtractorModalProps {
@@ -59,6 +60,7 @@ export function VideoExtractorModal({
 }: VideoExtractorModalProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const inspectDurationMsRef = useRef<number>(0);
 
   const [stage, setStage] = useState<ModalStage>("idle");
   const [isDragging, setIsDragging] = useState(false);
@@ -79,6 +81,7 @@ export function VideoExtractorModal({
   const resetState = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
+    inspectDurationMsRef.current = 0;
     setStage("idle");
     setIsDragging(false);
     setVideoFile(null);
@@ -114,12 +117,20 @@ export function VideoExtractorModal({
       });
 
       try {
+        const extractStart = performance.now();
         const result = await extractSubtitleTrack(file, track, {
           signal: controller.signal,
           onProgress: (p) => setProgress(p),
         });
 
         if (controller.signal.aborted) return;
+
+        const extractionDurationMs = Math.max(
+          0,
+          Math.round(
+            inspectDurationMsRef.current + (performance.now() - extractStart)
+          )
+        );
 
         const srtFile = new File([result.srt], result.suggestedFileName, {
           type: "application/x-subrip;charset=utf-8",
@@ -131,6 +142,7 @@ export function VideoExtractorModal({
           fileName: result.suggestedFileName,
           cueCount: result.cueCount,
           trackLabel: result.track.displayLabel,
+          extractionDurationMs,
         });
         resetState();
         onClose();
@@ -192,11 +204,16 @@ export function VideoExtractorModal({
       setSelectedTrackId(null);
 
       try {
+        const inspectStart = performance.now();
         const inspection = await inspectVideoSubtitles(
           candidate,
           controller.signal
         );
         if (controller.signal.aborted) return;
+        inspectDurationMsRef.current = Math.max(
+          0,
+          performance.now() - inspectStart
+        );
 
         setTextTracks(inspection.textTracks);
         setImageTracks(inspection.imageTracks);
