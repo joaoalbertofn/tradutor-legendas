@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useAuth, useClerk } from "@clerk/nextjs";
-import { Sparkles, RotateCcw, Download, Zap } from "lucide-react";
+import { Sparkles, RotateCcw, Download, Zap, BookOpen } from "lucide-react";
+import { GUIDES } from "@/lib/guides";
 import { Header } from "@/components/Header";
 import {
   BuyCreditsModal,
@@ -50,7 +52,8 @@ import type {
   UserCreditsInfo,
 } from "@/lib/types";
 
-const CONCURRENCY = 3;
+const INITIAL_CONCURRENCY = 6;
+const MIN_CONCURRENCY = 2;
 const MAX_RETRIES = 2;
 const FETCH_TIMEOUT_MS = 55_000;
 const LOCAL_STORAGE_COUNTER_KEY = "traduz-legendas:total_translated";
@@ -377,7 +380,11 @@ export default function HomePage() {
       fullContext: string,
       sessionId: string,
       signal: AbortSignal,
-      onRetry?: () => void
+      options?: {
+        preferredModel?: string;
+        onRetry?: () => void;
+        onRateLimit?: () => void;
+      }
     ): Promise<{
       items: TranslationItem[];
       metrics: TranslationChunkMetrics;
@@ -404,7 +411,7 @@ export default function HomePage() {
         }
 
         if (attempt > 0) {
-          onRetry?.();
+          options?.onRetry?.();
         }
 
         const attemptControl = createAttemptSignal(signal, FETCH_TIMEOUT_MS);
@@ -420,6 +427,7 @@ export default function HomePage() {
               style,
               glossary: glossary.trim() || undefined,
               fullContext,
+              preferredModel: options?.preferredModel || undefined,
               previousContext: previousContext.length > 0 ? previousContext : undefined,
             }),
           });
@@ -427,6 +435,9 @@ export default function HomePage() {
           const data = await response.json().catch(() => ({}));
 
           if (!response.ok) {
+            if (response.status === 429) {
+              options?.onRateLimit?.();
+            }
             const msg =
               typeof data.error === "string"
                 ? data.error
@@ -625,14 +636,17 @@ export default function HomePage() {
       activeSessionId = sessionId;
       setCredits(updatedCredits);
 
-      // 2. Concurrent queue with 3 parallel workers using hybrid context
+      // 2. Adaptive concurrent queue (starts at 6 workers, backs off on 429)
       const startTime = Date.now();
       translationStartMs = performance.now();
       let nextChunkIndex = 0;
+      const workerCount = Math.min(INITIAL_CONCURRENCY, chunks.length);
+      let activeWorkerLimit = workerCount;
 
-      const worker = async () => {
+      const worker = async (workerIndex: number) => {
         while (true) {
           if (controller.signal.aborted) return;
+          if (workerIndex >= activeWorkerLimit) return;
 
           const currentIndex = nextChunkIndex++;
           if (currentIndex >= chunks.length) return;
@@ -651,8 +665,17 @@ export default function HomePage() {
             chunkContext,
             sessionId,
             controller.signal,
-            () => {
-              telemetry.retriesCount += 1;
+            {
+              preferredModel: telemetry.model ?? undefined,
+              onRetry: () => {
+                telemetry.retriesCount += 1;
+              },
+              onRateLimit: () => {
+                activeWorkerLimit = Math.max(
+                  MIN_CONCURRENCY,
+                  activeWorkerLimit - 1
+                );
+              },
             }
           );
 
@@ -681,8 +704,11 @@ export default function HomePage() {
         }
       };
 
-      const workerCount = Math.min(CONCURRENCY, chunks.length);
-      await Promise.all(Array.from({ length: workerCount }, () => worker()));
+      await Promise.all(
+        Array.from({ length: workerCount }, (_, workerIndex) =>
+          worker(workerIndex)
+        )
+      );
 
       if (controller.signal.aborted) {
         dispatchTelemetryLog("cancelled");
@@ -937,9 +963,40 @@ export default function HomePage() {
         )}
       </main>
 
-      <footer className="border-t border-zinc-900 py-6 text-center text-xs text-zinc-600">
-        Processamento em lotes paralelos com contexto completo • 3 traduções
-        grátis por dia • Pacotes avulsos via Pix e Cartão
+      <footer className="border-t border-zinc-900 py-8 text-xs text-zinc-500">
+        <div className="mx-auto flex max-w-4xl flex-col gap-5 px-4 sm:px-6">
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-1.5 font-medium text-zinc-400">
+                <BookOpen className="h-3.5 w-3.5 text-emerald-400/80" />
+                Guias e tutoriais sobre legendas
+              </span>
+              <Link
+                href="/guias"
+                className="text-emerald-400/90 transition-colors hover:text-emerald-300"
+              >
+                Ver todos os guias →
+              </Link>
+            </div>
+            <ul className="grid gap-1.5 sm:grid-cols-2">
+              {GUIDES.map((guide) => (
+                <li key={guide.slug}>
+                  <Link
+                    href={`/guias/${guide.slug}`}
+                    className="text-zinc-500 transition-colors hover:text-zinc-300"
+                  >
+                    {guide.metaTitle}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <p className="border-t border-zinc-900/90 pt-4 text-center text-zinc-600">
+            Processamento em lotes paralelos com contexto completo • 3 traduções
+            grátis por dia • Pacotes avulsos via Pix e Cartão
+          </p>
+        </div>
       </footer>
 
       {isVideoExtractorOpen && (

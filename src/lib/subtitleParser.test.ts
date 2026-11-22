@@ -184,7 +184,7 @@ describe("subtitleParser", () => {
     expect(decodeSubtitleBuffer(utf16le.buffer)).toBe("Hi");
   });
 
-  it("uses hybrid sliding-window context for long subtitles (> 500 blocks)", () => {
+  it("uses hybrid sliding-window context for long subtitles (> 500 blocks) without duplicating current chunk", () => {
     const manyBlocks = Array.from({ length: 600 }, (_, i) => ({
       id: i + 1,
       index: String(i + 1),
@@ -195,7 +195,16 @@ describe("subtitleParser", () => {
     const ctx = buildChunkContext(manyBlocks, 5, 40); // chunk 5 = blocks 201..240
     expect(ctx).toContain("[Abertura da obra]");
     expect(ctx).toContain("[1] Dialogue line 1");
-    expect(ctx).toContain("[201] Dialogue line 201");
+    expect(ctx).toContain("[Contexto imediatamente anterior]");
+    expect(ctx).toContain("[195] Dialogue line 195");
+    expect(ctx).toContain("[Contexto imediatamente posterior]");
+    expect(ctx).toContain("[245] Dialogue line 245");
+    // Current chunk blocks must NOT be duplicated in context
+    expect(ctx).not.toContain("[201] Dialogue line 201");
+    expect(ctx).not.toContain("[240] Dialogue line 240");
+    // Distant blocks outside the 20-block window must NOT be included
+    expect(ctx).not.toContain("[175] Dialogue line 175");
+    expect(ctx).not.toContain("[265] Dialogue line 265");
     expect(ctx).not.toContain("[599] Dialogue line 599");
   });
 });

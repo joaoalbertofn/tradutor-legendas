@@ -666,7 +666,7 @@ export async function createUserTranslationSession(
 export async function validateUserTranslationSession(
   sessionId: string,
   userId: string
-): Promise<{ valid: boolean; reason?: string }> {
+): Promise<{ valid: boolean; reason?: string; hasSuccessfulChunk?: boolean }> {
   const userHash = hashUserId(userId);
   const tokenCheck = verifySessionToken(sessionId, userHash);
 
@@ -684,23 +684,34 @@ export async function validateUserTranslationSession(
 
   if (redis) {
     const sessionKey = `session:user_translate:${uuid}`;
-    const session = await redis.hgetall<UserRedisSessionHash>(sessionKey);
+    // Single HTTP round-trip: read userId + successfulChunks and atomically increment chunksUsed
+    const pipeline = redis.pipeline();
+    pipeline.hmget(sessionKey, "userId", "successfulChunks");
+    pipeline.hincrby(sessionKey, "chunksUsed", 1);
+    const [session, updatedChunks] = await pipeline.exec<
+      [Partial<UserRedisSessionHash> | null, number]
+    >();
+
     if (!session || !session.userId) {
+      // Remove orphan hash created by hincrby if session did not exist
+      await redis.del(sessionKey).catch(() => {});
       return { valid: false, reason: "Sessão de tradução expirada ou encerrada." };
     }
     if (session.userId !== userHash) {
       return { valid: false, reason: "Sessão não pertence ao usuário autenticado." };
     }
 
-    const updatedChunks = await redis.hincrby(sessionKey, "chunksUsed", 1);
-    if (updatedChunks > MAX_CHUNKS_PER_SESSION) {
+    if (Number(updatedChunks) > MAX_CHUNKS_PER_SESSION) {
       return {
         valid: false,
         reason: "Limite máximo de lotes excedido para esta legenda.",
       };
     }
 
-    return { valid: true };
+    return {
+      valid: true,
+      hasSuccessfulChunk: Number(session.successfulChunks ?? 0) > 0,
+    };
   }
 
   const session = userSessionMap.get(uuid);
@@ -713,7 +724,7 @@ export async function validateUserTranslationSession(
       counted: false,
       expiresAt: Date.now() + SESSION_TTL_SECONDS * 1000,
     });
-    return { valid: true };
+    return { valid: true, hasSuccessfulChunk: false };
   }
 
   if (Date.now() > session.expiresAt) {
@@ -729,7 +740,7 @@ export async function validateUserTranslationSession(
   }
 
   session.chunksUsed += 1;
-  return { valid: true };
+  return { valid: true, hasSuccessfulChunk: session.successfulChunks > 0 };
 }
 
 export async function markUserSessionChunkSuccess(

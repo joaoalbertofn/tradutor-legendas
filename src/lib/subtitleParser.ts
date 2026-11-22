@@ -6,9 +6,12 @@ const SRT_TIMESTAMP_REGEX =
 const VTT_TIMESTAMP_REGEX =
   /^(?:\d{1,2}:)?\d{2}:\d{2}\.\d{3}\s*-->\s*(?:\d{1,2}:)?\d{2}:\d{2}\.\d{3}(?:\s+.*)?$/;
 
-export const CHUNK_SIZE = 40;
+export const CHUNK_SIZE = 70;
 export const FULL_CONTEXT_BLOCK_THRESHOLD = 500;
 export const MAX_FULL_CONTEXT_CHARS = 80_000;
+export const CONTEXT_INTRO_BLOCKS = 15;
+export const CONTEXT_WINDOW_BEFORE = 20;
+export const CONTEXT_WINDOW_AFTER = 20;
 
 /**
  * Decodes a subtitle ArrayBuffer supporting UTF-8 (with or without BOM),
@@ -191,7 +194,7 @@ export function reconstructSubtitle(
 }
 
 /**
- * Splits subtitle blocks into fixed-size chunks (default: 40 blocks per chunk).
+ * Splits subtitle blocks into fixed-size chunks (default: 70 blocks per chunk).
  */
 export function chunkSubtitleBlocks(
   blocks: SubtitleBlock[],
@@ -236,9 +239,9 @@ export function buildFullContextTranscript(
 /**
  * Hybrid context builder:
  * - For files up to 500 blocks (<= 80k chars), sends the entire original transcript.
- * - For long movies (> 500 blocks), sends the opening 25 blocks (character names/tone)
- *   plus an expanded sliding window of 50 blocks before and 50 blocks after the current chunk,
- *   avoiding O(N²) token growth and TPM rate limits.
+ * - For long movies (> 500 blocks), sends the opening 15 blocks (character names/tone)
+ *   plus a compact sliding window of 20 blocks before and 20 blocks after the current chunk,
+ *   EXCLUDING the current chunk itself to avoid duplicating input tokens.
  */
 export function buildChunkContext(
   blocks: SubtitleBlock[],
@@ -252,24 +255,39 @@ export function buildChunkContext(
 
   const start = chunkIndex * chunkSize;
   const end = Math.min(blocks.length, start + chunkSize);
-  const windowStart = Math.max(0, start - 50);
-  const windowEnd = Math.min(blocks.length, end + 50);
+  const windowStart = Math.max(0, start - CONTEXT_WINDOW_BEFORE);
+  const windowEnd = Math.min(blocks.length, end + CONTEXT_WINDOW_AFTER);
 
   const sections: string[] = [];
 
-  if (windowStart > 25) {
-    const intro = buildFullContextTranscript(blocks.slice(0, 25), 10_000);
+  if (windowStart > CONTEXT_INTRO_BLOCKS) {
+    const intro = buildFullContextTranscript(
+      blocks.slice(0, CONTEXT_INTRO_BLOCKS),
+      6_000
+    );
     if (intro) {
       sections.push(`[Abertura da obra]\n${intro}`);
     }
   }
 
-  const localWindow = buildFullContextTranscript(
-    blocks.slice(windowStart, windowEnd),
-    MAX_FULL_CONTEXT_CHARS - 12_000
-  );
-  if (localWindow) {
-    sections.push(`[Janela de contexto próxima ao lote]\n${localWindow}`);
+  if (windowStart < start) {
+    const beforeWindow = buildFullContextTranscript(
+      blocks.slice(windowStart, start),
+      12_000
+    );
+    if (beforeWindow) {
+      sections.push(`[Contexto imediatamente anterior]\n${beforeWindow}`);
+    }
+  }
+
+  if (end < windowEnd) {
+    const afterWindow = buildFullContextTranscript(
+      blocks.slice(end, windowEnd),
+      12_000
+    );
+    if (afterWindow) {
+      sections.push(`[Contexto imediatamente posterior]\n${afterWindow}`);
+    }
   }
 
   return sections.join("\n\n");

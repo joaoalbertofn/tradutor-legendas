@@ -5,6 +5,9 @@ import {
   markSessionChunkSuccess,
   refundTranslationSession,
   claimStatsIncrement,
+  createUserTranslationSession,
+  validateUserTranslationSession,
+  markUserSessionChunkSuccess,
 } from "./quota";
 
 describe("quota & session security", () => {
@@ -69,5 +72,20 @@ describe("quota & session security", () => {
     // First claim succeeds, second replay is rejected
     expect(await claimStatsIncrement(s.sessionId, ip)).toBe(true);
     expect(await claimStatsIncrement(s.sessionId, ip)).toBe(false);
+  });
+
+  it("tracks hasSuccessfulChunk on user sessions to avoid redundant Redis writes", async () => {
+    const userId = "user_test_opt_1";
+    const sessionId = await createUserTranslationSession(userId, "free");
+
+    const firstCheck = await validateUserTranslationSession(sessionId, userId);
+    expect(firstCheck.valid).toBe(true);
+    expect(firstCheck.hasSuccessfulChunk).toBe(false);
+
+    await markUserSessionChunkSuccess(sessionId, userId);
+
+    const secondCheck = await validateUserTranslationSession(sessionId, userId);
+    expect(secondCheck.valid).toBe(true);
+    expect(secondCheck.hasSuccessfulChunk).toBe(true);
   });
 });
