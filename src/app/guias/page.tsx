@@ -68,7 +68,7 @@ export default function GuidesIndexPage() {
         <header className="space-y-3">
           <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
             <BookOpen className="h-3.5 w-3.5" />
-            <span>Central de Guias LegendaBR</span>
+            <span>Central de Guias LegendasBR</span>
           </div>
           <h1 className="text-3xl font-semibold tracking-tight text-zinc-50 sm:text-4xl">
             Guias práticos para traduzir e corrigir legendas em PT-BR
@@ -127,7 +127,7 @@ export default function GuidesIndexPage() {
               </h2>
               <p className="max-w-xl text-sm text-zinc-400">
                 Envie seu arquivo .srt, .vtt ou vídeo .mkv/.mp4 na página
-                inicial do LegendaBR e traduza para Português do Brasil grátis
+                inicial do LegendasBR e traduza para Português do Brasil grátis
                 com 100% de sincronia preservada.
               </p>
             </div>

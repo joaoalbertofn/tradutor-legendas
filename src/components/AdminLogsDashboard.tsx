@@ -199,7 +199,7 @@ export function AdminLogsDashboard({
                 Painel de Telemetria
               </h1>
               <p className="text-xs text-zinc-500">
-                Acesso restrito — LegendaBR
+                Acesso restrito — LegendasBR
               </p>
             </div>
           </div>

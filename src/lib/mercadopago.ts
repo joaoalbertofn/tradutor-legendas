@@ -109,7 +109,7 @@ export async function createMercadoPagoPreference(
       items: [
         {
           id: planConfig.id,
-          title: `LegendaBR — ${planConfig.name} (+${planConfig.credits} traduções)`,
+          title: `LegendasBR — ${planConfig.name} (+${planConfig.credits} traduções)`,
           description: planConfig.description,
           quantity: 1,
           unit_price: planConfig.unitPrice,

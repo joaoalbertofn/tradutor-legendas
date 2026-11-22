@@ -1,4 +1,4 @@
-# LegendaBR — Tradutor de Legendas `.srt` e `.vtt` para PT-BR
+# LegendasBR — Tradutor de Legendas `.srt` e `.vtt` para PT-BR
 
 Aplicação web em **Next.js (App Router)**, **TypeScript** e **Tailwind CSS** para traduzir arquivos de legenda `.srt` e `.vtt` de qualquer idioma para **Português do Brasil (pt-BR)**, preservando 100% dos índices, timestamps, cabeçalhos WebVTT e tags de formatação inline.
 

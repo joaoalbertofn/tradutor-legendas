@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, Subtitles } from "lucide-react";
+import { ArrowRight, BookOpen } from "lucide-react";
+import { BrandMark, BrandWordmark } from "@/components/BrandLogo";
 
 export function GuidesHeader() {
   return (
@@ -7,15 +8,12 @@ export function GuidesHeader() {
       <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-3 px-4 sm:px-6">
         <Link
           href="/"
+          aria-label="LegendasBR — Página inicial"
           className="flex items-center gap-2.5 transition-opacity hover:opacity-90"
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
-            <Subtitles className="h-4 w-4" />
-          </div>
+          <BrandMark className="h-8 w-8 shrink-0" />
           <div className="flex items-baseline gap-2">
-            <span className="text-sm font-semibold tracking-tight text-zinc-100">
-              LegendaBR
-            </span>
+            <BrandWordmark className="text-sm font-semibold tracking-tight" />
             <span className="hidden text-xs text-zinc-500 sm:inline">
               SRT &amp; VTT → PT-BR
             </span>

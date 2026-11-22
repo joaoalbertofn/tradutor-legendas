@@ -10,7 +10,7 @@ import { AdminLogsDashboard } from "@/components/AdminLogsDashboard";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Telemetria & Logs — LegendaBR Admin",
+  title: "Telemetria & Logs — LegendasBR Admin",
   robots: { index: false, follow: false },
 };
 

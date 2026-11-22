@@ -211,7 +211,7 @@ export default async function GuideArticlePage({ params }: GuidePageProps) {
                   href="/"
                   className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-400 transition-colors hover:text-emerald-300"
                 >
-                  <span>Abrir o tradutor gratuito do LegendaBR</span>
+                  <span>Abrir o tradutor gratuito do LegendasBR</span>
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </div>

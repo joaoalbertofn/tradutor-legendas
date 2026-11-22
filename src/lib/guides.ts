@@ -73,17 +73,17 @@ export const GUIDES: GuideArticle[] = [
     publishedAt: "2026-11-22",
     updatedAt: "2026-11-22",
     directAnswer:
-      "Para traduzir legendas de filmes para PT-BR grátis sem quebrar a sincronia, o caminho mais rápido é usar um tradutor dedicado a arquivos .srt e .vtt com IA, como o LegendaBR. Ele separa automaticamente os diálogos dos códigos de tempo (timestamps), traduz o roteiro com contexto completo para Português do Brasil e devolve o arquivo pronto para assistir — com 3 traduções gratuitas por dia.",
+      "Para traduzir legendas de filmes para PT-BR grátis sem quebrar a sincronia, o caminho mais rápido é usar um tradutor dedicado a arquivos .srt e .vtt com IA, como o LegendasBR. Ele separa automaticamente os diálogos dos códigos de tempo (timestamps), traduz o roteiro com contexto completo para Português do Brasil e devolve o arquivo pronto para assistir — com 3 traduções gratuitas por dia.",
     inlineCta: {
       title: "Quer traduzir sua legenda agora mesmo?",
       description:
-        "Envie seu arquivo .srt ou .vtt na página inicial do LegendaBR e receba a versão em PT-BR em segundos, com 3 traduções grátis por dia.",
+        "Envie seu arquivo .srt ou .vtt na página inicial do LegendasBR e receba a versão em PT-BR em segundos, com 3 traduções grátis por dia.",
       buttonLabel: "Traduzir legenda grátis agora",
     },
     bottomCta: {
       title: "Pronto para assistir seu filme em Português do Brasil?",
       description:
-        "Arraste seu arquivo .srt, .vtt ou até o próprio vídeo .mkv/.mp4 no LegendaBR. Preservamos 100% dos timestamps, índices e acentos.",
+        "Arraste seu arquivo .srt, .vtt ou até o próprio vídeo .mkv/.mp4 no LegendasBR. Preservamos 100% dos timestamps, índices e acentos.",
       buttonLabel: "Ir para o tradutor gratuito",
     },
     sections: [
@@ -103,15 +103,15 @@ export const GUIDES: GuideArticle[] = [
       },
       {
         id: "passo-a-passo-gratis",
-        heading: "Passo a passo: como traduzir legendas para PT-BR grátis no LegendaBR",
+        heading: "Passo a passo: como traduzir legendas para PT-BR grátis no LegendasBR",
         paragraphs: [
-          "O LegendaBR foi criado especificamente para resolver esses problemas. Ele nunca envia os timestamps para a inteligência artificial — apenas o texto dos diálogos — e reconstrói o arquivo original bloco por bloco de forma 100% fiel.",
+          "O LegendasBR foi criado especificamente para resolver esses problemas. Ele nunca envia os timestamps para a inteligência artificial — apenas o texto dos diálogos — e reconstrói o arquivo original bloco por bloco de forma 100% fiel.",
         ],
         steps: [
           {
             title: "Acesse a página inicial e envie seu arquivo",
             detail:
-              "Entre no tradutor do LegendaBR e arraste seu arquivo .srt ou .vtt (em qualquer idioma: inglês, espanhol, francês, japonês, coreano, etc.). Se o filme estiver em .mkv ou .mp4 sem arquivo separado, você também pode extrair a legenda direto do vídeo.",
+              "Entre no tradutor do LegendasBR e arraste seu arquivo .srt ou .vtt (em qualquer idioma: inglês, espanhol, francês, japonês, coreano, etc.). Se o filme estiver em .mkv ou .mp4 sem arquivo separado, você também pode extrair a legenda direto do vídeo.",
           },
           {
             title: "Escolha o estilo de tradução (opcional)",
@@ -144,10 +144,10 @@ export const GUIDES: GuideArticle[] = [
         id: "comparativo-metodos",
         heading: "Comparativo: qual o melhor jeito de traduzir legendas grátis?",
         paragraphs: [
-          "Veja abaixo as principais diferenças entre usar um tradutor dedicado como o LegendaBR, o Google Tradutor de documentos ou colar manualmente em uma IA:",
+          "Veja abaixo as principais diferenças entre usar um tradutor dedicado como o LegendasBR, o Google Tradutor de documentos ou colar manualmente em uma IA:",
         ],
         table: {
-          headers: ["Critério", "LegendaBR", "Google Tradutor", "ChatGPT / IA manual"],
+          headers: ["Critério", "LegendasBR", "Google Tradutor", "ChatGPT / IA manual"],
           rows: [
             ["Preserva 100% dos timestamps", "Sim (automático)", "Às vezes quebra", "Frequentemente quebra"],
             ["Português do Brasil natural", "Sim (3 estilos)", "Robótico / literal", "Bom, mas pede prompt longo"],
@@ -162,20 +162,20 @@ export const GUIDES: GuideArticle[] = [
         heading: "Quais idiomas e formatos funcionam?",
         paragraphs: [
           "Você pode enviar legendas em qualquer idioma de origem — inglês, espanhol, japonês, coreano, italiano, alemão, francês, russo ou mandarim — e traduzir diretamente para Português do Brasil.",
-          "Em relação aos formatos, o LegendaBR suporta nativamente arquivos .srt (SubRip) e .vtt (WebVTT) de até 5 MB, além de extrair faixas de legenda embutidas em arquivos de vídeo .mkv, .mp4 e .m4v diretamente no seu navegador.",
+          "Em relação aos formatos, o LegendasBR suporta nativamente arquivos .srt (SubRip) e .vtt (WebVTT) de até 5 MB, além de extrair faixas de legenda embutidas em arquivos de vídeo .mkv, .mp4 e .m4v diretamente no seu navegador.",
         ],
       },
     ],
     faqs: [
       {
-        question: "Traduzir legendas no LegendaBR é realmente grátis?",
+        question: "Traduzir legendas no LegendasBR é realmente grátis?",
         answer:
           "Sim. Toda conta tem direito a 3 traduções completas gratuitas por dia, renovadas a cada 24 horas. Se você precisar maratonar uma temporada inteira no mesmo dia, também existem pacotes avulsos acessíveis via Pix ou Cartão.",
       },
       {
         question: "A legenda pode ficar fora de sincronia depois da tradução?",
         answer:
-          "Não. O LegendaBR separa os tempos e os índices no seu navegador antes de enviar apenas os diálogos para a IA. Na reconstrução final, os timestamps originais são mantidos exatamente iguais ao arquivo enviado.",
+          "Não. O LegendasBR separa os tempos e os índices no seu navegador antes de enviar apenas os diálogos para a IA. Na reconstrução final, os timestamps originais são mantidos exatamente iguais ao arquivo enviado.",
       },
       {
         question: "Preciso instalar algum programa no computador ou celular?",
@@ -205,17 +205,17 @@ export const GUIDES: GuideArticle[] = [
     publishedAt: "2026-11-22",
     updatedAt: "2026-11-22",
     directAnswer:
-      "Você não precisa mais instalar programas como MKVToolNix ou Subtitle Edit para tirar a legenda de um filme. No LegendaBR, basta arrastar seu arquivo .mkv ou .mp4 diretamente na página inicial: a ferramenta lê as faixas de legenda localmente no seu navegador (sem fazer upload do vídeo), extrai o arquivo .srt em segundos e já deixa tudo pronto para traduzir para Português do Brasil.",
+      "Você não precisa mais instalar programas como MKVToolNix ou Subtitle Edit para tirar a legenda de um filme. No LegendasBR, basta arrastar seu arquivo .mkv ou .mp4 diretamente na página inicial: a ferramenta lê as faixas de legenda localmente no seu navegador (sem fazer upload do vídeo), extrai o arquivo .srt em segundos e já deixa tudo pronto para traduzir para Português do Brasil.",
     inlineCta: {
       title: "Extraia a legenda do seu MKV ou MP4 agora",
       description:
-        "Arraste o vídeo direto na página inicial do LegendaBR. O processamento de extração acontece 100% no seu navegador, sem enviar o filme para a internet.",
+        "Arraste o vídeo direto na página inicial do LegendasBR. O processamento de extração acontece 100% no seu navegador, sem enviar o filme para a internet.",
       buttonLabel: "Abrir extrator e tradutor",
     },
     bottomCta: {
       title: "Sem programas pesados, sem upload demorado",
       description:
-        "Extraia faixas de legenda de arquivos .mkv, .mp4 e .m4v em segundos e traduza para PT-BR grátis com o LegendaBR.",
+        "Extraia faixas de legenda de arquivos .mkv, .mp4 e .m4v em segundos e traduza para PT-BR grátis com o LegendasBR.",
       buttonLabel: "Extrair e traduzir agora",
     },
     sections: [
@@ -231,11 +231,11 @@ export const GUIDES: GuideArticle[] = [
         id: "extrair-direto-no-navegador",
         heading: "Como extrair e traduzir legenda de MKV/MP4 direto no navegador",
         paragraphs: [
-          "Com o extrator integrado do LegendaBR, você faz tudo em uma única tela — e o melhor: o arquivo de vídeo nunca sai do seu computador, porque a leitura das faixas de legenda acontece localmente no navegador.",
+          "Com o extrator integrado do LegendasBR, você faz tudo em uma única tela — e o melhor: o arquivo de vídeo nunca sai do seu computador, porque a leitura das faixas de legenda acontece localmente no navegador.",
         ],
         steps: [
           {
-            title: "Abra a página inicial do LegendaBR",
+            title: "Abra a página inicial do LegendasBR",
             detail:
               "Clique no botão 'Clique aqui para extrair do vídeo (.mkv / .mp4)' logo abaixo da área de upload — ou simplesmente arraste o arquivo .mkv, .mp4 ou .m4v direto para a caixa.",
           },
@@ -257,7 +257,7 @@ export const GUIDES: GuideArticle[] = [
         ],
         callout: {
           title: "Privacidade e velocidade: seu vídeo não é enviado para a internet",
-          body: "Mesmo que seu filme tenha 4 GB ou 15 GB, o LegendaBR lê apenas os dados necessários do contêiner localmente no seu dispositivo. Não há espera de upload de vídeo.",
+          body: "Mesmo que seu filme tenha 4 GB ou 15 GB, o LegendasBR lê apenas os dados necessários do contêiner localmente no seu dispositivo. Não há espera de upload de vídeo.",
           tone: "tip",
         },
       },
@@ -268,7 +268,7 @@ export const GUIDES: GuideArticle[] = [
           "Nem toda legenda dentro de um vídeo é igual. Entender a diferença evita perda de tempo:",
         ],
         bullets: [
-          "Softsubs em texto (SRT/UTF-8, ASS/SSA, WebVTT, mov_text em MP4): são faixas de texto puro. Podem ser extraídas em segundos pelo LegendaBR e traduzidas imediatamente.",
+          "Softsubs em texto (SRT/UTF-8, ASS/SSA, WebVTT, mov_text em MP4): são faixas de texto puro. Podem ser extraídas em segundos pelo LegendasBR e traduzidas imediatamente.",
           "Legendas em imagem (PGS de Blu-ray / VobSub de DVD): são imagens sobrepostas ao vídeo, não texto. Nesse caso, é necessário primeiro um software de OCR (como Subtitle Edit) para converter a imagem em .srt.",
           "Hardsubs (legendas queimadas no vídeo): fazem parte dos pixels da imagem do vídeo e não podem ser extraídas como faixa de texto.",
         ],
@@ -290,7 +290,7 @@ export const GUIDES: GuideArticle[] = [
       {
         question: "Preciso fazer upload de um filme de 10 GB para extrair a legenda?",
         answer:
-          "Não. A extração de legendas de .mkv e .mp4 no LegendaBR roda localmente no seu navegador, sem subir o arquivo de vídeo para o servidor. Apenas o texto leve da legenda extraída é enviado para tradução.",
+          "Não. A extração de legendas de .mkv e .mp4 no LegendasBR roda localmente no seu navegador, sem subir o arquivo de vídeo para o servidor. Apenas o texto leve da legenda extraída é enviado para tradução.",
       },
       {
         question: "Funciona com arquivos MP4 e M4V também, ou só MKV?",
@@ -325,17 +325,17 @@ export const GUIDES: GuideArticle[] = [
     publishedAt: "2026-11-22",
     updatedAt: "2026-11-22",
     directAnswer:
-      "Para traduzir legendas .srt com IA sem perder a sincronia, a inteligência artificial nunca deve editar os códigos de tempo manualmente. Ferramentas dedicadas como o LegendaBR isolam os timestamps no código, enviam apenas os diálogos junto com o contexto completo do filme para a IA e remontam o arquivo .srt com correspondência exata 1 para 1 — entregando Português do Brasil natural sem quebrar nenhuma linha.",
+      "Para traduzir legendas .srt com IA sem perder a sincronia, a inteligência artificial nunca deve editar os códigos de tempo manualmente. Ferramentas dedicadas como o LegendasBR isolam os timestamps no código, enviam apenas os diálogos junto com o contexto completo do filme para a IA e remontam o arquivo .srt com correspondência exata 1 para 1 — entregando Português do Brasil natural sem quebrar nenhuma linha.",
     inlineCta: {
       title: "Experimente tradução com IA feita para legendas",
       description:
         "Escolha o tom da tradução (Natural, Fiel ou Adaptação de gírias), adicione seu glossário e traduza até 3 legendas por dia gratuitamente.",
-      buttonLabel: "Testar o LegendaBR grátis",
+      buttonLabel: "Testar o LegendasBR grátis",
     },
     bottomCta: {
       title: "Tradução com IA sem dor de cabeça com prompts",
       description:
-        "Pare de copiar e colar blocos no chat. Envie seu arquivo .srt ou .vtt no LegendaBR e receba a legenda pronta, natural e 100% sincronizada.",
+        "Pare de copiar e colar blocos no chat. Envie seu arquivo .srt ou .vtt no LegendasBR e receba a legenda pronta, natural e 100% sincronizada.",
       buttonLabel: "Traduzir minha legenda agora",
     },
     sections: [
@@ -356,7 +356,7 @@ export const GUIDES: GuideArticle[] = [
         id: "como-funciona-traducao-lossless",
         heading: "Como funciona a tradução lossless com contexto completo",
         paragraphs: [
-          "Um tradutor de legendas profissional com IA resolve isso separando a engenharia do arquivo da tradução linguística. No LegendaBR, o processo funciona em três camadas:",
+          "Um tradutor de legendas profissional com IA resolve isso separando a engenharia do arquivo da tradução linguística. No LegendasBR, o processo funciona em três camadas:",
         ],
         steps: [
           {
@@ -380,7 +380,7 @@ export const GUIDES: GuideArticle[] = [
         id: "estilos-e-glossario",
         heading: "Como deixar a legenda com cara de tradução profissional em PT-BR",
         paragraphs: [
-          "Nem todo vídeo pede o mesmo estilo de tradução. Uma comédia cheia de trocadilhos exige uma abordagem diferente de uma palestra técnica ou documentário histórico. No LegendaBR você pode ajustar dois recursos poderosos antes de traduzir:",
+          "Nem todo vídeo pede o mesmo estilo de tradução. Uma comédia cheia de trocadilhos exige uma abordagem diferente de uma palestra técnica ou documentário histórico. No LegendasBR você pode ajustar dois recursos poderosos antes de traduzir:",
         ],
         bullets: [
           "Natural / Coloquial: ideal para filmes, séries e novelas — diálogos fluidos que soam como português falado no Brasil.",
@@ -399,7 +399,7 @@ export const GUIDES: GuideArticle[] = [
       {
         question: "A IA traduz para Português do Brasil (PT-BR) ou Português de Portugal?",
         answer:
-          "O LegendaBR é otimizado exclusivamente para Português do Brasil (PT-BR), evitando construções artificiais ou vocabulário de Portugal que costumam aparecer em tradutores genéricos.",
+          "O LegendasBR é otimizado exclusivamente para Português do Brasil (PT-BR), evitando construções artificiais ou vocabulário de Portugal que costumam aparecer em tradutores genéricos.",
       },
       {
         question: "Tags de itálico (<i>) e quebras de linha são mantidas?",
@@ -434,11 +434,11 @@ export const GUIDES: GuideArticle[] = [
     publishedAt: "2026-11-22",
     updatedAt: "2026-11-22",
     directAnswer:
-      "Para traduzir um arquivo .vtt (WebVTT) para português online sem corromper o cabeçalho WEBVTT ou os posicionamentos de tela, envie o arquivo diretamente no LegendaBR. A ferramenta reconhece nativamente a especificação WebVTT — mantendo cabeçalhos, blocos STYLE/REGION/NOTE e cue settings intactos — e exporta o arquivo .pt-BR.vtt pronto para uso.",
+      "Para traduzir um arquivo .vtt (WebVTT) para português online sem corromper o cabeçalho WEBVTT ou os posicionamentos de tela, envie o arquivo diretamente no LegendasBR. A ferramenta reconhece nativamente a especificação WebVTT — mantendo cabeçalhos, blocos STYLE/REGION/NOTE e cue settings intactos — e exporta o arquivo .pt-BR.vtt pronto para uso.",
     inlineCta: {
       title: "Tem um arquivo .vtt para traduzir agora?",
       description:
-        "Envie seu .vtt no LegendaBR e receba a tradução em Português do Brasil preservando 100% da estrutura WebVTT.",
+        "Envie seu .vtt no LegendasBR e receba a tradução em Português do Brasil preservando 100% da estrutura WebVTT.",
       buttonLabel: "Traduzir arquivo .VTT grátis",
     },
     bottomCta: {
@@ -468,15 +468,15 @@ export const GUIDES: GuideArticle[] = [
       },
       {
         id: "passo-a-passo-traduzir-vtt",
-        heading: "Como traduzir arquivo .VTT para PT-BR no LegendaBR",
+        heading: "Como traduzir arquivo .VTT para PT-BR no LegendasBR",
         paragraphs: [
-          "Você não precisa converter seu .vtt para .srt antes de traduzir. O LegendaBR lê e reconstrói arquivos .vtt nativamente:",
+          "Você não precisa converter seu .vtt para .srt antes de traduzir. O LegendasBR lê e reconstrói arquivos .vtt nativamente:",
         ],
         steps: [
           {
             title: "Envie o arquivo .vtt na página inicial",
             detail:
-              "Arraste ou selecione o arquivo .vtt no LegendaBR. O sistema detecta automaticamente o formato VTT e mostra quantos blocos de fala existem.",
+              "Arraste ou selecione o arquivo .vtt no LegendasBR. O sistema detecta automaticamente o formato VTT e mostra quantos blocos de fala existem.",
           },
           {
             title: "Ajuste o estilo para o tipo de conteúdo",
@@ -508,12 +508,12 @@ export const GUIDES: GuideArticle[] = [
       {
         question: "O arquivo traduzido continua no formato .vtt?",
         answer:
-          "Sim. Se você enviar aula-01.vtt, o LegendaBR exporta aula-01.pt-BR.vtt mantendo integralmente o cabeçalho WEBVTT, os tempos com ponto decimal e os blocos de estilo originais.",
+          "Sim. Se você enviar aula-01.vtt, o LegendasBR exporta aula-01.pt-BR.vtt mantendo integralmente o cabeçalho WEBVTT, os tempos com ponto decimal e os blocos de estilo originais.",
       },
       {
         question: "Posso traduzir legendas baixadas do YouTube ou de plataformas de curso?",
         answer:
-          "Sim. Basta ter o arquivo .vtt ou .srt em mãos e enviar no LegendaBR. O limite por arquivo é de até 5 MB, suficiente até para aulas longas de várias horas.",
+          "Sim. Basta ter o arquivo .vtt ou .srt em mãos e enviar no LegendasBR. O limite por arquivo é de até 5 MB, suficiente até para aulas longas de várias horas.",
       },
       {
         question: "O player VLC aceita legendas .vtt?",
@@ -543,18 +543,18 @@ export const GUIDES: GuideArticle[] = [
     publishedAt: "2026-11-22",
     updatedAt: "2026-11-22",
     directAnswer:
-      "Acentos quebrados em legendas .srt (como 'não' virando 'nÃ£o' ou '?') acontecem por conflito de codificação de caracteres entre ANSI/Windows-1252 e UTF-8. A solução definitiva para Smart TVs (Samsung, LG, Philips) e players como o VLC é salvar a legenda em UTF-8 com BOM — opção que já vem ativada por padrão em todas as legendas traduzidas no LegendaBR.",
+      "Acentos quebrados em legendas .srt (como 'não' virando 'nÃ£o' ou '?') acontecem por conflito de codificação de caracteres entre ANSI/Windows-1252 e UTF-8. A solução definitiva para Smart TVs (Samsung, LG, Philips) e players como o VLC é salvar a legenda em UTF-8 com BOM — opção que já vem ativada por padrão em todas as legendas traduzidas no LegendasBR.",
     inlineCta: {
       title: "Precisa traduzir uma legenda já pronta para Smart TV?",
       description:
-        "No LegendaBR, a opção 'Incluir UTF-8 BOM no arquivo final' já vem ativada por padrão para que acentos em português funcionem de primeira na TV e no VLC.",
+        "No LegendasBR, a opção 'Incluir UTF-8 BOM no arquivo final' já vem ativada por padrão para que acentos em português funcionem de primeira na TV e no VLC.",
       buttonLabel: "Traduzir legenda com UTF-8 BOM",
     },
     bottomCta: {
       title: "Chega de legenda bugada na hora do filme",
       description:
-        "Traduza suas legendas .srt e .vtt para PT-BR no LegendaBR com codificação UTF-8 BOM automática e 3 traduções grátis todos os dias.",
-      buttonLabel: "Acessar o LegendaBR",
+        "Traduza suas legendas .srt e .vtt para PT-BR no LegendasBR com codificação UTF-8 BOM automática e 3 traduções grátis todos os dias.",
+      buttonLabel: "Acessar o LegendasBR",
     },
     sections: [
       {
@@ -606,11 +606,11 @@ export const GUIDES: GuideArticle[] = [
         id: "como-evitar-o-problema-ao-traduzir",
         heading: "Como evitar esse erro ao traduzir novas legendas",
         paragraphs: [
-          "Quando você traduz uma legenda de outro idioma para Português do Brasil usando o LegendaBR, o leitor interno detecta automaticamente a codificação original do arquivo enviado (mesmo arquivos antigos em Windows-1252/Latin-1) e já marca por padrão a opção 'Incluir UTF-8 BOM no arquivo final'.",
+          "Quando você traduz uma legenda de outro idioma para Português do Brasil usando o LegendasBR, o leitor interno detecta automaticamente a codificação original do arquivo enviado (mesmo arquivos antigos em Windows-1252/Latin-1) e já marca por padrão a opção 'Incluir UTF-8 BOM no arquivo final'.",
           "Assim, o arquivo .pt-BR.srt baixado já sai pronto para rodar com ç, ã, é e travessões perfeitos tanto em computadores quanto em Smart TVs via pendrive, DLNA ou Plex.",
         ],
         callout: {
-          title: "Onde fica a opção UTF-8 BOM no LegendaBR?",
+          title: "Onde fica a opção UTF-8 BOM no LegendasBR?",
           body: "Ela já vem ativada automaticamente! Se quiser conferir ou desativar para algum fluxo específico, basta clicar em 'Configurações de tradução' na página inicial.",
           tone: "tip",
         },
@@ -628,9 +628,9 @@ export const GUIDES: GuideArticle[] = [
           "Os dois motivos mais comuns são: o nome do arquivo .srt não está idêntico ao nome do arquivo de vídeo na mesma pasta, ou o arquivo está muito longo/com caracteres especiais no nome. Deixe ambos com nomes simples e iguais, como Filme.mkv e Filme.srt.",
       },
       {
-        question: "Posso usar o LegendaBR para traduzir uma legenda em inglês que está em codificação antiga?",
+        question: "Posso usar o LegendasBR para traduzir uma legenda em inglês que está em codificação antiga?",
         answer:
-          "Sim. O LegendaBR decodifica automaticamente arquivos antigos (ANSI/Latin-1) na leitura e exporta o resultado traduzido limpo em UTF-8 com BOM.",
+          "Sim. O LegendasBR decodifica automaticamente arquivos antigos (ANSI/Latin-1) na leitura e exporta o resultado traduzido limpo em UTF-8 com BOM.",
       },
     ],
   },

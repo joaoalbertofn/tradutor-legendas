@@ -12,7 +12,7 @@ function normalizeSiteUrl(rawUrl?: string): string {
 }
 
 export const SITE_URL = normalizeSiteUrl(process.env.NEXT_PUBLIC_APP_URL);
-export const SITE_NAME = "LegendaBR";
+export const SITE_NAME = "LegendasBR";
 export const SITE_TAGLINE = "Tradutor de Legendas .SRT e .VTT para PT-BR";
 export const SITE_DESCRIPTION =
   "Traduza legendas .srt e .vtt de qualquer idioma para Português do Brasil natural preservando 100% dos timestamps, índices e formatações originais.";

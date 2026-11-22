@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { Show, SignInButton, UserButton } from "@clerk/nextjs";
-import { BookOpen, Plus, Subtitles } from "lucide-react";
+import { BookOpen, Plus } from "lucide-react";
+import { BrandMark, BrandWordmark } from "@/components/BrandLogo";
 import type { UserCreditsInfo } from "@/lib/types";
 
 interface HeaderProps {
@@ -65,15 +66,12 @@ export function Header({
         <div className="flex items-center gap-4">
           <Link
             href="/"
+            aria-label="LegendasBR — Página inicial"
             className="flex items-center gap-2.5 transition-opacity hover:opacity-90"
           >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
-              <Subtitles className="h-4 w-4" />
-            </div>
+            <BrandMark className="h-8 w-8 shrink-0" />
             <div className="flex items-baseline gap-2">
-              <span className="text-sm font-semibold tracking-tight text-zinc-100">
-                LegendaBR
-              </span>
+              <BrandWordmark className="text-sm font-semibold tracking-tight" />
               <span className="hidden text-xs text-zinc-500 md:inline">
                 SRT &amp; VTT → PT-BR
               </span>

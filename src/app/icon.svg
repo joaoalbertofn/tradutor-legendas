@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="6" y1="4" x2="58" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#141c1a" />
+      <stop offset="100%" stop-color="#09090b" />
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(14 12) rotate(45) scale(48)">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="border" x1="4" y1="4" x2="60" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#34d399" stop-opacity="0.55" />
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0.2" />
+    </linearGradient>
+  </defs>
+
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#bg)" />
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#glow)" />
+  <rect x="2.75" y="2.75" width="58.5" height="58.5" rx="15.25" stroke="url(#border)" stroke-width="1.5" />
+
+  <!-- Minimalist two-line subtitle bars -->
+  <rect x="12" y="25" width="24" height="6.5" rx="3.25" fill="#f4f4f5" />
+  <rect x="40" y="25" width="12" height="6.5" rx="3.25" fill="#10b981" />
+
+  <rect x="12" y="36.5" width="13" height="6.5" rx="3.25" fill="#facc15" />
+  <rect x="29" y="36.5" width="23" height="6.5" rx="3.25" fill="#f4f4f5" />
+</svg>

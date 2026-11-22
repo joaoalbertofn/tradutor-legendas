@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useAuth, useClerk } from "@clerk/nextjs";
 import { Sparkles, RotateCcw, Download, Zap, BookOpen } from "lucide-react";
 import { GUIDES } from "@/lib/guides";
+import { BrandMark, BrandWordmark } from "@/components/BrandLogo";
 import { Header } from "@/components/Header";
 import {
   BuyCreditsModal,
@@ -834,7 +835,11 @@ export default function HomePage() {
 
       <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-4 py-10 sm:px-6 sm:py-14">
         {/* Hero */}
-        <div className="space-y-2.5 text-center">
+        <div className="flex flex-col items-center space-y-3 text-center">
+          <div className="inline-flex items-center gap-2.5 rounded-full border border-zinc-800/90 bg-zinc-900/70 py-1.5 pl-2 pr-3.5 shadow-sm">
+            <BrandMark className="h-6 w-6" />
+            <BrandWordmark className="text-sm font-semibold tracking-tight" />
+          </div>
           <h1 className="text-3xl font-semibold tracking-tight text-zinc-50 sm:text-4xl">
             Traduza legendas para{" "}
             <span className="text-emerald-400">Português do Brasil</span>
@@ -992,10 +997,16 @@ export default function HomePage() {
             </ul>
           </div>
 
-          <p className="border-t border-zinc-900/90 pt-4 text-center text-zinc-600">
-            Processamento em lotes paralelos com contexto completo • 3 traduções
-            grátis por dia • Pacotes avulsos via Pix e Cartão
-          </p>
+          <div className="flex flex-col items-center justify-between gap-2 border-t border-zinc-900/90 pt-4 text-center text-zinc-600 sm:flex-row sm:text-left">
+            <div className="inline-flex items-center gap-2">
+              <BrandMark className="h-5 w-5" />
+              <BrandWordmark className="text-xs font-semibold tracking-tight" />
+            </div>
+            <p>
+              Processamento em lotes paralelos com contexto completo • 3 traduções
+              grátis por dia • Pacotes avulsos via Pix e Cartão
+            </p>
+          </div>
         </div>
       </footer>
 
